@@ -11,7 +11,7 @@ from keras2bert.optimizer import (
 from keras.optimizers import Adam
 import codecs
 
-
+# 模型文件
 config_path = '/kg/bert/chinese_L-12_H-768_A-12/bert_config.json'
 checkpoint_path = '/kg/bert/chinese_L-12_H-768_A-12/bert_model.ckpt'
 dict_path = '/kg/bert/chinese_L-12_H-768_A-12/vocab.txt'
