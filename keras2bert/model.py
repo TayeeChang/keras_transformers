@@ -3,6 +3,7 @@ from .layers import *
 import numpy as np
 import json
 
+
 def _wraper_layer(name,
                  input_layer,
                  build_func,
@@ -48,6 +49,7 @@ def _wrapper_embedding(name,
     else:
         dropout_layer = norm_layer
     return dropout_layer
+
 
 def get_encoder_component(name,
                           input_layer,
@@ -118,6 +120,7 @@ def get_encoders(encoder_num,
         )
     return last_layer
 
+
 def get_inputs(seq_len=None):
     input_token_ids = keras.layers.Input(
         shape=(seq_len,),
@@ -128,6 +131,7 @@ def get_inputs(seq_len=None):
         name='Input-%s' % 'Segment'
     )
     return input_token_ids, input_segment_ids
+
 
 def get_embeddings(inputs,
                    vocab_size,
@@ -173,6 +177,7 @@ def get_embeddings(inputs,
             name='Embedding-Map'
         )(embeddings)
     return embeddings, token_embeddings
+
 
 def get_model(vocab_size,
               segment_type_size,
@@ -293,10 +298,12 @@ def build_transformer_model(config_file,
     )
     return model
 
+
 def checkpoint_loader(checkpoint_file):
     def _loader(name):
         return tf.train.load_variable(checkpoint_file, name)
     return _loader
+
 
 def load_model_weights_from_checkpoint(model,
                                        config,
