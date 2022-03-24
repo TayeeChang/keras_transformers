@@ -1,6 +1,11 @@
 # keras2bert开源框架
 
-该版本目前为第二版，支持BERT、Albert模型，后续会陆续添加其他Transformer模型。
+该版本目前为第二版，支持模型如下：   
+- BERT  
+- Roberta  
+- Albert  
+
+后续会陆续添加其他Transformer模型。
 
 继续完善中...
 
