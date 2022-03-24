@@ -1,6 +1,6 @@
 
 from keras2bert.backend import keras, pad_sequences
-from keras2bert.model import build_transformer_model
+from keras2bert.models import build_bert_model
 from keras2bert.utils import DataGenerator
 from keras2bert.tokenizer import Tokenizer
 from keras2bert.optimizer import (
@@ -52,7 +52,7 @@ valid_generator = DataLoader(load_data('data/sentiment/sentiment.valid.data'), b
 test_generator = DataLoader(load_data('data/sentiment/sentiment.test.data'), batch_size=batch_size)
 
 # 构建模型
-bert = build_transformer_model(config_path, checkpoint_path)  # 建立模型，加载权重
+bert = build_bert_model(config_path, checkpoint_path)  # 建立模型，加载权重
 output = keras.layers.Lambda(
     lambda x: x[:, 0], name='Extract-CLS'
 )(bert.output)

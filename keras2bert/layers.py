@@ -12,6 +12,7 @@ class Layer(keras.layers.Layer):
 
 keras.layers.Layer = Layer
 
+
 class TokenEmbedding(keras.layers.Embedding):
     """重新定义可返回权重的Embedding层
     """
@@ -21,6 +22,7 @@ class TokenEmbedding(keras.layers.Embedding):
         return [super(TokenEmbedding, self).compute_mask(inputs, mask), None]
     def call(self, inputs):
         return [super(TokenEmbedding, self).call(inputs), self.embeddings]
+
 
 class PositionEmbedding(keras.layers.Layer):
     """嵌入式位置编码
@@ -121,6 +123,7 @@ class PositionEmbedding(keras.layers.Layer):
         config.update(base_config)
         return config
 
+
 class MultiHeadSelfAttention(keras.layers.Layer):
     """多头自注意力机制
     """
@@ -204,6 +207,7 @@ class MultiHeadSelfAttention(keras.layers.Layer):
         config.update(base_config)
         return config
 
+
 class FeedForward(keras.layers.Layer):
     """逐位置前馈层
     """
@@ -269,6 +273,7 @@ class FeedForward(keras.layers.Layer):
         config.update(base_config)
         return config
 
+
 class LayerNormalization(keras.layers.Layer):
     """层归一化
     """
@@ -324,6 +329,7 @@ class LayerNormalization(keras.layers.Layer):
         base_config = super(LayerNormalization, self).get_config()
         config.update(base_config)
         return config
+
 
 class EmbeddingSimilarity(keras.layers.Layer):
     """用于输出特征与输入embedding矩阵的相似度计算
