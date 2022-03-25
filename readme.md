@@ -1,6 +1,6 @@
 # keras2bert开源框架
 
-该版本目前为第二版，支持模型如下：   
+该版本目前为第三版，支持模型如下：   
 - BERT  
 - Roberta  
 - Albert  
