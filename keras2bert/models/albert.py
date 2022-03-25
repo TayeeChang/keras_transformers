@@ -56,6 +56,7 @@ def _build_shared_multi_head_self_attention(head_num,
                                             query_size,
                                             key_size,
                                             output_dim,
+                                            attention_dropout_rate,
                                             kernel_initializer,
                                             trainable,
                                             name):
@@ -64,6 +65,7 @@ def _build_shared_multi_head_self_attention(head_num,
             query_size,
             key_size,
             output_dim,
+            attention_dropout_rate,
             kernel_initializer,
             trainable=trainable,
             name=name
@@ -123,11 +125,12 @@ def get_encoder_component(input_layer,
             query_size=hidden_dim // head_num,
             key_size=hidden_dim // head_num,
             output_dim=hidden_dim,
+            attention_dropout_rate=attention_dropout_rate,
             kernel_initializer=kernel_initializer,
             trainable=trainable,
             name=attention_name,
         ),
-        dropout_rate=attention_dropout_rate,
+        dropout_rate=hidden_dropout_rate,
         trainable=trainable,
     )
     feed_forward_layer = _wrap_layer(
@@ -230,7 +233,6 @@ def get_embeddings(inputs,
         )(embeddings)
     return embeddings, token_embeddings
 
-
 def get_model(vocab_size,
               segment_type_size,
               max_pos_num,
@@ -241,9 +243,9 @@ def get_model(vocab_size,
               head_num,
               feed_forward_dim,
               feed_forward_activation,
-              bert_initializer='glorot_uniform',
-              attention_dropout_rate=0.0,
-              hidden_dropout_rate=0.0,
+              attention_dropout_rate,
+              hidden_dropout_rate,
+              bert_initializer,
               with_nsp=False,
               with_mlm=False,
               **kwargs):
@@ -308,18 +310,19 @@ def get_model(vocab_size,
 
 
 def build_albert_model(config_file,
-                            checkpoint_file,
-                            trainable=True,
-                            seq_len=int(1e9),
-                            with_nsp=False,
-                            with_mlm=False,
-                            **kwargs):
+                       checkpoint_file,
+                       trainable=True,
+                       seq_len=int(1e9),
+                       with_nsp=False,
+                       with_mlm=False,
+                       **kwargs):
     """Build the model from config file.
     """
     with open(config_file, 'r') as reader:
         config = json.loads(reader.read())
     if seq_len is not None:
         config['max_position_embeddings'] = min(seq_len, config['max_position_embeddings'])
+
     config['bert_initializer'] = keras.initializers.TruncatedNormal(0, 0.02)
     inputs, outputs = get_model(
         vocab_size=config['vocab_size'],

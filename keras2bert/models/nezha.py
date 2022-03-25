@@ -2,6 +2,47 @@ from keras2bert.layers import *
 import numpy as np
 import json
 
+_SHARED_BLOCK = {}
+
+
+class MultiHeadSelfAttention(MultiHeadSelfAttention):
+    """实现带经典相对位置编码的多头自注意力机制
+    """
+    def call(self, inputs, mask=None):
+        inputs, pos_bias = inputs
+        mask = mask[0]
+
+        qw = self.q_dense(inputs)
+        kw = self.k_dense(inputs)
+        vw = self.v_dense(inputs)
+
+        qw = K.reshape(qw, (-1, K.shape(qw)[1], self.head_num, self.query_size))
+        kw = K.reshape(kw, (-1, K.shape(kw)[1], self.head_num, self.query_size))
+        vw = K.reshape(vw, (-1, K.shape(vw)[1], self.head_num, self.key_size))
+
+        a = tf.einsum('bmhd, bnhd->bhmn', qw, kw)
+        # 经典相对位置编码
+        a = a + tf.einsum('bmhd, mnd->bhmn', qw, pos_bias)
+        a = a / self.query_size ** 0.5
+        a = mask_sequences(a, mask, axis=-1, value='-inf')
+        # 将attention score归一化成概率分布
+        a = K.softmax(a, axis=-1)
+        # 这里的dropout参考自google transformer论文
+        a = keras.layers.Dropout(self.attention_dropout_rate)(a)
+        o = tf.einsum('bhmn, bnhd->bmhd', a, vw)
+        # 经典相对位置编码
+        o = o + tf.einsum('bhmn, mnd->bmhd', a, pos_bias)
+        o = K.reshape(o, (-1, K.shape(o)[1], self.head_num * self.key_size))
+        o = self.o_dense(o)
+
+        return o
+
+    def compute_mask(self, inputs, mask=None):
+        return mask[0]
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
+
 
 def _wrap_layer(name,
                 input_layer,
@@ -50,6 +91,19 @@ def _wrap_embedding(name,
     return dropout_layer
 
 
+def _build_position_bias(inputs,
+                         input_dim,
+                         output_dim,
+                         name):
+    return _SHARED_BLOCK.setdefault(name, PositionEmbedding(
+        input_dim=input_dim,
+        output_dim=output_dim,
+        mode='relative',
+        embedding_initializer='Sinusoidal',
+        name=name,
+    ))(inputs)
+
+
 def get_encoder_component(name,
                           input_layer,
                           head_num,
@@ -64,18 +118,21 @@ def get_encoder_component(name,
     feed_forward_name = '%s-FeedForward' % name
     attention_layer = _wrap_layer(
         name=attention_name,
-        input_layer=input_layer,
+        input_layer=[input_layer,
+                     _build_position_bias(input_layer,
+                                          input_dim=2 * 64 + 1,
+                                          output_dim=hidden_dim // head_num,
+                                          name='Relative-Embedding-Position')],
         build_func=MultiHeadSelfAttention(
             head_num=head_num,
             query_size=hidden_dim // head_num,
             key_size=hidden_dim // head_num,
             output_dim=hidden_dim,
-            attention_dropout_rate=attention_dropout_rate,
             kernel_initializer=kernel_initializer,
             trainable=trainable,
             name=attention_name,
         ),
-        dropout_rate=hidden_dropout_rate,
+        dropout_rate=attention_dropout_rate,
         trainable=trainable,
     )
     feed_forward_layer = _wrap_layer(
@@ -139,7 +196,6 @@ def get_embeddings(inputs,
                    embedding_dim,
                    hidden_dim,
                    embedding_initializer,
-                   max_pos_num,
                    embedding_dropout_rate):
     input_token_ids, input_segment_ids = inputs
     embedding_token, token_embeddings = TokenEmbedding(
@@ -155,18 +211,12 @@ def get_embeddings(inputs,
         embeddings_initializer=embedding_initializer,
         name='Embedding-Segment'
     )(input_segment_ids)
-    embeddings = keras.layers.Add(
-        name='Embedding-Add-Token-Segment'
-    )([embedding_token, embedding_segment])
+
     embeddings = _wrap_embedding(
         name='Embedding',
-        input_layer=embeddings,
-        build_func=PositionEmbedding(
-            input_dim=max_pos_num,
-            output_dim=embedding_dim,
-            mode='add',
-            embedding_initializer=embedding_initializer,
-            name='Embedding-Position'
+        input_layer=[embedding_token, embedding_segment],
+        build_func=keras.layers.Add(
+            name='Embedding-Add-Token-Segment'
         ),
         dropout_rate=embedding_dropout_rate,
     )
@@ -181,7 +231,6 @@ def get_embeddings(inputs,
 
 def get_model(vocab_size,
               segment_type_size,
-              max_pos_num,
               seq_len,
               embedding_dim,
               hidden_dim,
@@ -189,9 +238,9 @@ def get_model(vocab_size,
               head_num,
               feed_forward_dim,
               feed_forward_activation,
-              attention_dropout_rate,
-              hidden_dropout_rate,
-              bert_initializer,
+              bert_initializer='glorot_uniform',
+              attention_dropout_rate=0.0,
+              hidden_dropout_rate=0.0,
               with_nsp=False,
               with_mlm=False,
               **kwargs):
@@ -200,7 +249,6 @@ def get_model(vocab_size,
         inputs=[input_token_ids, input_segment_ids],
         vocab_size=vocab_size,
         segment_type_size=segment_type_size,
-        max_pos_num=max_pos_num,
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
         embedding_initializer=bert_initializer,
@@ -255,7 +303,7 @@ def get_model(vocab_size,
     return [input_token_ids, input_segment_ids], output
 
 
-def build_bert_model(config_file,
+def build_nezha_model(config_file,
                      checkpoint_file,
                      trainable=True,
                      seq_len=int(1e9),
@@ -269,12 +317,11 @@ def build_bert_model(config_file,
 
     if seq_len is not None:
         config['max_position_embeddings'] = min(seq_len, config['max_position_embeddings'])
-
     config['bert_initializer'] = keras.initializers.TruncatedNormal(0, 0.02)
+
     inputs, outputs = get_model(
         vocab_size=config['vocab_size'],
         segment_type_size=config['type_vocab_size'],
-        max_pos_num=config['max_position_embeddings'],
         seq_len=None,
         embedding_dim=config.get('embedding_size', config.get('hidden_size')),
         hidden_dim=config['hidden_size'],
@@ -321,9 +368,6 @@ def load_model_weights_from_checkpoint(model,
     ])
     model.get_layer(name='Embedding-Segment').set_weights([
         loader('bert/embeddings/token_type_embeddings'),
-    ])
-    model.get_layer(name='Embedding-Position').set_weights([
-        loader('bert/embeddings/position_embeddings')[:config['max_position_embeddings'], :],
     ])
     model.get_layer(name='Embedding-Norm').set_weights([
         loader('bert/embeddings/LayerNorm/gamma'),

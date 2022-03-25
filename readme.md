@@ -4,6 +4,7 @@
 - BERT  
 - Roberta  
 - Albert  
+- Nezha
 
 后续会陆续添加其他Transformer模型。
 
