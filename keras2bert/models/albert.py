@@ -317,6 +317,9 @@ def build_albert_model(config_file,
                        with_mlm=False,
                        **kwargs):
     """Build the model from config file.
+    # Reference:
+        [ALBERT: A LITE BERT FOR SELF-SUPERVISED LEARNING OF LANGUAGE REPRESENTATIONS]
+        (https://arxiv.org/pdf/1909.11942.pdf?ref=https://githubhelp.com)
     """
     with open(config_file, 'r') as reader:
         config = json.loads(reader.read())

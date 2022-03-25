@@ -263,6 +263,10 @@ def build_bert_model(config_file,
                      with_mlm=False,
                      **kwargs):
     """Build the model from config file.
+    # Reference:
+        [BERT: Pre-training of Deep Bidirectional Transformers forLanguage Understanding]
+        (https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)
+
     """
     with open(config_file, 'r') as reader:
         config = json.loads(reader.read())

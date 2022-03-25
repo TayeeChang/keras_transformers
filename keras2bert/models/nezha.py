@@ -311,6 +311,9 @@ def build_nezha_model(config_file,
                      with_mlm=False,
                      **kwargs):
     """Build the model from config file.
+    # References:
+        [NEZHA: NEURAL CONTEXTUALIZED REPRESENTATION FORCHINESE LANGUAGE UNDERSTANDING]
+        (https://arxiv.org/pdf/1909.00204.pdf)
     """
     with open(config_file, 'r') as reader:
         config = json.loads(reader.read())
