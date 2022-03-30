@@ -304,12 +304,12 @@ def get_model(vocab_size,
 
 
 def build_nezha_model(config_file,
-                     checkpoint_file,
-                     trainable=True,
-                     seq_len=int(1e9),
-                     with_nsp=False,
-                     with_mlm=False,
-                     **kwargs):
+                      checkpoint_file,
+                      trainable=True,
+                      seq_len=int(1e9),
+                      with_nsp=False,
+                      with_mlm=False,
+                      **kwargs):
     """Build the model from config file.
     # References:
         [NEZHA: NEURAL CONTEXTUALIZED REPRESENTATION FORCHINESE LANGUAGE UNDERSTANDING]
