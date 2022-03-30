@@ -6,7 +6,8 @@
 - [Albert](https://arxiv.org/pdf/1909.11942.pdf?ref=https://githubhelp.com)  
 - [Nezha](https://arxiv.org/pdf/1909.00204.pdf)   
 - [Unilm](https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)  
-- [Electra](https://openreview.net/pdf?id=r1xMH1BtvB)
+- [Electra](https://openreview.net/pdf?id=r1xMH1BtvB)   
+- [GPT](https://www.cs.ubc.ca/~amuham01/LING530/papers/radford2018improving.pdf)
 
 后续会陆续添加其他Transformer模型。
 
