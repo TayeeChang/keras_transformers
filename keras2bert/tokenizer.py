@@ -142,7 +142,7 @@ class Tokenizer(object):
         return tokens
 
     def _word_piece_tokenize(self, word):
-        """基于word的最大正向匹配法
+        """基于word-piece的最大正向匹配法
         """
         if word in self._token_dict:
             return [word]
