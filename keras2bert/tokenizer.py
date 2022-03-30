@@ -126,6 +126,8 @@ class Tokenizer(object):
         return first
 
     def _tokenize(self, text):
+        """核心分词函数
+        """
         if self._do_lower_case:
             text = unicodedata.normalize('NFD', text)
             text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
