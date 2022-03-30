@@ -15,6 +15,8 @@ def _build_unilm_bias(inputs):
 
 
 class MultiHeadSelfAttention(MultiHeadSelfAttention):
+    """带Attention bias
+    """
     def call(self, inputs, mask=None):
         qw = self.q_dense(inputs)
         kw = self.k_dense(inputs)
