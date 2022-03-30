@@ -1,11 +1,12 @@
 # keras2bert开源框架
 
-该版本目前为第四版，支持模型如下：   
+目前支持的模型：   
 - [BERT](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
 - [Roberta](https://arxiv.org/pdf/1907.11692.pdf%5C)   
 - [Albert](https://arxiv.org/pdf/1909.11942.pdf?ref=https://githubhelp.com)  
 - [Nezha](https://arxiv.org/pdf/1909.00204.pdf)   
-- [Unilm](https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)   
+- [Unilm](https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)  
+- [Electra](https://openreview.net/pdf?id=r1xMH1BtvB)
 
 后续会陆续添加其他Transformer模型。
 
