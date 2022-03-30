@@ -391,35 +391,30 @@ def load_model_weights_from_checkpoint(model,
         loader('bert/encoder/embedding_hidden_mapping_in/bias'),
     ])
 
-    for i in range(config['num_hidden_layers']):
-        try:
-            model.get_layer(name='Encoder-MultiHeadSelfAttention')
-        except ValueError as e:
-            continue
-        model.get_layer(name='Encoder-MultiHeadSelfAttention').set_weights([
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/query/kernel'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/query/bias'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/key/kernel'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/key/bias'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/value/kernel'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/value/bias'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/output/dense/kernel'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/output/dense/bias'),
-        ])
-        model.get_layer(name='Encoder-MultiHeadSelfAttention-Norm').set_weights([
-            loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm/gamma'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm/beta'),
-        ])
-        model.get_layer(name='Encoder-FeedForward').set_weights([
-            loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/dense/kernel'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/dense/bias'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/output/dense/kernel'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/output/dense/bias'),
-        ])
-        model.get_layer(name='Encoder-FeedForward-Norm').set_weights([
-            loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm_1/gamma'),
-            loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm_1/beta'),
-        ])
+    model.get_layer(name='Encoder-MultiHeadSelfAttention').set_weights([
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/query/kernel'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/query/bias'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/key/kernel'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/key/bias'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/value/kernel'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/value/bias'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/output/dense/kernel'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/output/dense/bias'),
+    ])
+    model.get_layer(name='Encoder-MultiHeadSelfAttention-Norm').set_weights([
+        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm/gamma'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm/beta'),
+    ])
+    model.get_layer(name='Encoder-FeedForward').set_weights([
+        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/dense/kernel'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/dense/bias'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/output/dense/kernel'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/output/dense/bias'),
+    ])
+    model.get_layer(name='Encoder-FeedForward-Norm').set_weights([
+        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm_1/gamma'),
+        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm_1/beta'),
+    ])
 
     if with_mlm:
         model.get_layer(name='MLM-Dense').set_weights([
