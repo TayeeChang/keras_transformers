@@ -11,7 +11,7 @@ def _build_unilm_bias(inputs):
     idxs = K.cumsum(inputs, axis=-1)
     idxs = idxs[:, None] <= idxs[:, :, None]
     mask = K.cast(idxs, K.floatx())
-    return (1 - mask[:, None]) * K.infinity()
+    return -(1 - mask[:, None]) * K.infinity()
 
 
 class MultiHeadSelfAttention(MultiHeadSelfAttention):
