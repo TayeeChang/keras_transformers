@@ -2,13 +2,17 @@ import unicodedata
 import codecs
 import numpy as np
 
+
 def load_vocab(vocab_path):
+    """加载词典
+    """
     token_dict = {}
     with codecs.open(vocab_path, 'r', 'utf-8') as infile:
         for line in infile:
             token = line.strip()
             token_dict[token] = len(token_dict)
     return token_dict
+
 
 class Tokenizer(object):
     """Bert分词器
