@@ -1,15 +1,14 @@
-
+import codecs
 from keras2bert.backend import keras, pad_sequences
 from keras2bert.models import build_bert_model
 from keras2bert.utils import DataGenerator
 from keras2bert.tokenizer import Tokenizer
+from keras.optimizers import Adam
 from keras2bert.optimizer import (
     warp_optimizer_with_warmup,
     wrap_optimizer_with_accumulate_grads,
     wrap_optimizer_with_weight_decay
 )
-from keras.optimizers import Adam
-import codecs
 
 # 模型文件
 config_path = '/kg/bert/chinese_L-12_H-768_A-12/bert_config.json'
