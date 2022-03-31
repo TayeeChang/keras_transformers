@@ -21,7 +21,8 @@ epochs = 10
 batch_size = 32
 maxlen = 128
 
-tokenizer = Tokenizer(dict_path, do_lower_case=True)  # 建立分词器
+# 建立分词器
+tokenizer = Tokenizer(dict_path, do_lower_case=True)  
 
 
 def load_data(file_path):
@@ -51,7 +52,7 @@ valid_generator = DataLoader(load_data('data/sentiment/sentiment.valid.data'), b
 test_generator = DataLoader(load_data('data/sentiment/sentiment.test.data'), batch_size=batch_size)
 
 # 构建模型
-bert = build_bert_model(config_path, checkpoint_path)  # 建立模型，加载权重
+bert = build_bert_model(config_path, checkpoint_path)
 output = keras.layers.Lambda(
     lambda x: x[:, 0], name='Extract-CLS'
 )(bert.output)
@@ -68,6 +69,7 @@ adamWD = wrap_optimizer_with_weight_decay(Adam)
 adamWU = warp_optimizer_with_warmup(adamWD)
 adamAcc = wrap_optimizer_with_accumulate_grads(adamWU)
 
+# 模型编译
 model.compile(
     loss='sparse_categorical_crossentropy',
     optimizer=adamAcc(
@@ -81,6 +83,8 @@ model.compile(
 
 
 def evaluate(data):
+    """评估函数
+    """
     total, golden = 0., 0.
     for x, y in data:
         y_pred = model.predict(x).argmax(axis=-1)
