@@ -99,13 +99,13 @@ class Tokenizer(object):
             if isinstance(text1, str):
                 return self._encode(text1, max_len=max_len)
             token_ids, segment_ids = [], []
-            for text in text1: # 输入为[(first1, second1), (first2, second2)]形式
+            for text in text1:
                 if isinstance(text, (list, tuple)):
-                    if len(text) == 2:
+                    if len(text) == 2: # 输入为[(first1, second1), (first2, second2), ...]形式
                         first, second = text[0], text[1]
-                    else:
+                    else: # 输入为[(first,), (first, ), ...]形式
                         first, second = text[0], None
-                else:
+                else: # 输入为[first, first, ...]形式
                     first, second = text, None
                 token_id, segment_id = self._encode(first, second, max_len=max_len)
                 token_ids.append(token_id)
