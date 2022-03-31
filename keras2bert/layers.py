@@ -10,7 +10,6 @@ class Layer(keras.layers.Layer):
         super(Layer, self).__init__(**kwargs)
         self.supports_masking= True
 
-
 keras.layers.Layer = Layer
 
 
@@ -27,7 +26,7 @@ class TokenEmbedding(keras.layers.Embedding):
 
 class PositionEmbedding(keras.layers.Layer):
     """位置编码
-    支持4种模式
+    支持5种模式
        * Expand mode: negative integers (relative position) could be used in this mode.
        * Rel mode
        * Add mode
@@ -408,6 +407,8 @@ class EmbeddingSimilarity(keras.layers.Layer):
 
 
 class Scale(keras.layers.Layer):
+    """用于特征缩放
+    """
     def __init__(self, scale, **kwargs):
         self.scale = scale
         super(Scale, self).__init__(**kwargs)
