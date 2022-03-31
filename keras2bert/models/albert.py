@@ -119,7 +119,7 @@ def get_encoder_component(input_layer,
 
     attention_layer = _wrap_layer(
         name=attention_name,
-        input_layer=input_layer,
+        input_layer=[input_layer, input_layer, input_layer],
         build_func=_build_shared_multi_head_self_attention(
             head_num=head_num,
             query_size=hidden_dim // head_num,
@@ -390,6 +390,7 @@ def load_model_weights_from_checkpoint(model,
         loader('bert/encoder/embedding_hidden_mapping_in/kernel'),
         loader('bert/encoder/embedding_hidden_mapping_in/bias'),
     ])
+
 
     model.get_layer(name='Encoder-MultiHeadSelfAttention').set_weights([
         loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/query/kernel'),

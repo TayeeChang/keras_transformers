@@ -18,9 +18,9 @@ class MultiHeadSelfAttention(MultiHeadSelfAttention):
     """带Attention bias
     """
     def call(self, inputs, mask=None):
-        qw = self.q_dense(inputs)
-        kw = self.k_dense(inputs)
-        vw = self.v_dense(inputs)
+        qw = self.q_dense(inputs[0])
+        kw = self.k_dense(inputs[1])
+        vw = self.v_dense(inputs[2])
 
         qw = K.reshape(qw, (-1, K.shape(qw)[1], self.head_num, self.query_size))
         kw = K.reshape(kw, (-1, K.shape(kw)[1], self.head_num, self.query_size))
@@ -30,7 +30,7 @@ class MultiHeadSelfAttention(MultiHeadSelfAttention):
         a = a / self.query_size ** 0.5
         # attention偏置，用于防止看见未来信息
         a = a + globals()['attention_bias']
-        a = mask_sequences(a, mask, axis=-1, value='-inf')
+        a = mask_sequences(a, mask[1], axis=-1, value='-inf')
         # 将attention score归一化成概率分布
         a = K.softmax(a, axis=-1)
         # 这里的dropout参考自google transformer论文
@@ -104,7 +104,7 @@ def get_encoder_component(name,
     feed_forward_name = '%s-FeedForward' % name
     attention_layer = _wrap_layer(
         name=attention_name,
-        input_layer=input_layer,
+        input_layer=[input_layer, input_layer, input_layer],
         build_func=MultiHeadSelfAttention(
             head_num=head_num,
             query_size=hidden_dim // head_num,
@@ -297,12 +297,12 @@ def get_model(vocab_size,
 
 
 def build_unilm_model(config_file,
-                     checkpoint_file,
-                     trainable=True,
-                     seq_len=int(1e9),
-                     with_nsp=False,
-                     with_mlm=False,
-                     **kwargs):
+                      checkpoint_file,
+                      trainable=True,
+                      seq_len=int(1e9),
+                      with_nsp=False,
+                      with_mlm=False,
+                      **kwargs):
     """Build the model from config file.
     # Reference:
         [Unified Language Model Pre-training for Natural Language Understanding and Generation]

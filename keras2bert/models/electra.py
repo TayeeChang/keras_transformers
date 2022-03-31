@@ -1,5 +1,4 @@
 from keras2bert.layers import *
-import numpy as np
 import json
 
 
@@ -64,7 +63,7 @@ def get_encoder_component(name,
     feed_forward_name = '%s-FeedForward' % name
     attention_layer = _wrap_layer(
         name=attention_name,
-        input_layer=input_layer,
+        input_layer=[input_layer, input_layer, input_layer],
         build_func=MultiHeadSelfAttention(
             head_num=head_num,
             query_size=hidden_dim // head_num,
