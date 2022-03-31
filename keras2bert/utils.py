@@ -136,8 +136,8 @@ def viterbi_decode(nodes,
                    start_id=None,
                    end_id=None):
     """viterbi算法求最优路径
-        node.shape=(seq_len, num_labels)
-        trans.shape=(num_labels, num_labels)
+    node.shape=(seq_len, num_labels)
+    trans.shape=(num_labels, num_labels)
     本质是动态规划.
     """
     if start_id:
