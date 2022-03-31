@@ -131,6 +131,7 @@ def set_infinity(value):
 def identity(x):
     return x
 
+
 symbolic = identity
 if hasattr(K, 'symbolic'):
     symbolic = K.symbolic
