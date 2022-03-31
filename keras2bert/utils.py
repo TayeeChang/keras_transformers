@@ -51,6 +51,8 @@ class AutoRegressiveDecoder(object):
     def beam_search(self,
                     inputs,
                     beam_size=1):
+        """波束搜索算法
+        """
         V = np.shape(inputs)[-1]
         beams = None
         scores = None
@@ -91,6 +93,9 @@ class AutoRegressiveDecoder(object):
                       n,
                       topk=None,
                       topp=None):
+        """随机采样算法
+        支持topk, topp采样
+        """
         complete_seqs = []
         cur_seqs = np.empty((n, 0))
         indices = None
