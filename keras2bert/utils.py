@@ -3,7 +3,7 @@ from keras2bert.backend import softmax
 
 
 class DataGenerator(object):
-    """数据加载器，用于生成训练批数据。
+    """定义数据加载器，用于生成训练批数据。
     """
     def __init__(self,
                  data,
