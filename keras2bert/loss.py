@@ -68,9 +68,9 @@ class MultiClassDiceLoss(Loss):
 
 class DiceLoss(Loss):
     """Dice Loss
-    引用：
-    [Dice Loss for Data-imbalanced NLP Tasks]
-    (https://arxiv.org/pdf/1911.02855.pdf?ref=https://githubhelp.com)
+    Reference：
+      [Dice Loss for Data-imbalanced NLP Tasks]
+      (https://arxiv.org/pdf/1911.02855.pdf?ref=https://githubhelp.com)
     """
     def __init__(self,
                  output_dims=None,
