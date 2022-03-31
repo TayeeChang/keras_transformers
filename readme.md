@@ -8,6 +8,7 @@
 - [Unilm](https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)  
 - [Electra](https://openreview.net/pdf?id=r1xMH1BtvB)   
 - [GPT](https://www.cs.ubc.ca/~amuham01/LING530/papers/radford2018improving.pdf)
+- [GPT2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
 
 后续会陆续添加其他Transformer模型。
 
