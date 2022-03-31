@@ -10,6 +10,7 @@ class Layer(keras.layers.Layer):
         super(Layer, self).__init__(**kwargs)
         self.supports_masking= True
 
+
 keras.layers.Layer = Layer
 
 
@@ -28,11 +29,13 @@ class PositionEmbedding(keras.layers.Layer):
     """位置编码
     支持4种模式
        * Expand mode: negative integers (relative position) could be used in this mode.
+       * Rel mode
        * Add mode
        * Mul mode
        * Concat mode
     """
     MODE_EXPAND = 'expand'
+    MODE_REL = 'relative'
     MODE_ADD = 'add'
     MODE_MUL = 'mul'
     MODE_CONCAT = 'concat'
@@ -64,6 +67,13 @@ class PositionEmbedding(keras.layers.Layer):
                 initializer=self.embedding_initializer,
                 name='pos_embeddings',
             )
+        elif self.mode == self.MODE_REL:
+            self.embeddings = self.add_weight(
+                shape=(self.input_dim, self.output_dim),
+                initializer=self.embedding_initializer,
+                trainable=False,
+                name='relative_embeddings',
+            )
         else:
             self.embeddings = self.add_weight(
                 shape=(self.input_dim, self.output_dim),
@@ -73,7 +83,17 @@ class PositionEmbedding(keras.layers.Layer):
         super(PositionEmbedding, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
-        if self.mode == self.MODE_EXPAND:
+        if self.mode == self.MODE_REL:
+            i_index = K.arange(0, K.shape(inputs)[1], dtype='int32')
+            j_index = K.arange(0, K.shape(inputs)[1], dtype='int32')
+            pos_index = i_index[None, :] - j_index[:, None]
+            max_pos = (self.input_dim - 1) // 2
+            return K.gather(
+                self.embeddings,
+                K.minimum(K.maximum(pos_index, -max_pos), max_pos) + max_pos
+            )
+
+        elif self.mode == self.MODE_EXPAND:
             if K.dtype(inputs) != 'int32':
                 inputs = K.cast(inputs, 'int32')
             return K.gather(
@@ -103,6 +123,8 @@ class PositionEmbedding(keras.layers.Layer):
         return output_mask
 
     def compute_output_shape(self, input_shape):
+        if self.mode == self.MODE_REL:
+            return input_shape[:-1] + (self.output_dim,)
         if self.mode == self.MODE_EXPAND:
             return input_shape + (self.output_shape,)
         if self.mode == self.MODE_CONCAT:
@@ -132,12 +154,14 @@ class MultiHeadSelfAttention(keras.layers.Layer):
                  query_size,
                  key_size,
                  output_dim,
+                 attention_dropout_rate=0.0,
                  kernel_initializer='glorot_uniform',
                  **kwargs):
         self.head_num = head_num
         self.query_size = query_size
         self.key_size = key_size
         self.feature_dim = output_dim
+        self.attention_dropout_rate=attention_dropout_rate
         self.kernel_initializer = kernel_initializer
         super(MultiHeadSelfAttention, self).__init__(**kwargs)
 
@@ -169,9 +193,9 @@ class MultiHeadSelfAttention(keras.layers.Layer):
         )
 
     def call(self, inputs, mask=None):
-        qw = self.q_dense(inputs)
-        kw = self.k_dense(inputs)
-        vw = self.v_dense(inputs)
+        qw = self.q_dense(inputs[0])
+        kw = self.k_dense(inputs[1])
+        vw = self.v_dense(inputs[2])
 
         qw = K.reshape(qw, (-1, K.shape(qw)[1], self.head_num, self.query_size))
         kw = K.reshape(kw, (-1, K.shape(kw)[1], self.head_num, self.query_size))
@@ -179,10 +203,13 @@ class MultiHeadSelfAttention(keras.layers.Layer):
 
         a = tf.einsum('bmhd, bnhd->bhmn', qw, kw)
         a = a / self.query_size ** 0.5
-        a = mask_sequences(a, mask, axis=-1, value='-inf')
+        a = mask_sequences(a, mask[1], axis=-1, value='-inf')
 
+        # 将attention score归一化成概率分布
         a = K.softmax(a, axis=-1)
-        o = tf.einsum('bhnk, bkhd->bnhd', a, vw)
+        # 这里的dropout参考自google transformer论文
+        a = keras.layers.Dropout(self.attention_dropout_rate)(a)
+        o = tf.einsum('bhmn, bnhd->bmhd', a, vw)
 
         o = K.reshape(o, (-1, K.shape(o)[1], self.head_num * self.key_size))
         o = self.o_dense(o)
@@ -190,10 +217,10 @@ class MultiHeadSelfAttention(keras.layers.Layer):
         return o
 
     def compute_mask(self, inputs, mask=None):
-        return mask
+        return mask[0]
 
     def compute_output_shape(self, input_shape):
-        o_shape = input_shape[:-1] + (self.feature_dim,)
+        o_shape = input_shape[0][:-1] + (self.feature_dim,)
         return o_shape
 
     def get_config(self):
@@ -338,21 +365,28 @@ class EmbeddingSimilarity(keras.layers.Layer):
                  initializer='zeros',
                  regularizer=None,
                  constraint=None,
+                 use_bias=True,
                  **kwargs):
         super(EmbeddingSimilarity, self).__init__(**kwargs)
+        self.use_bias = use_bias
         self.initializer = keras.initializers.get(initializer)
         self.regularizer = keras.regularizers.get(regularizer)
         self.constraint = keras.constraints.get(constraint)
 
     def build(self, input_shape):
         super(EmbeddingSimilarity, self).build(input_shape)
-        self.bias = self.add_weight(name='bias',
-                                    shape=(input_shape[1][0],),
-                                    initializer=self.initializer)
+        if self.use_bias:
+            self.bias = self.add_weight(name='bias',
+                                        shape=(input_shape[1][0],),
+                                        initializer=self.initializer)
 
     def call(self, inputs, mask=None):
         inputs, embeddings = inputs
-        output = K.bias_add(K.dot(inputs, K.transpose(embeddings)), self.bias)
+        if self.use_bias:
+            output = K.bias_add(K.dot(inputs, K.transpose(embeddings)), self.bias)
+        else:
+            output = K.dot(inputs, K.transpose(embeddings))
+
         return keras.activations.softmax(output)
 
     def compute_output_shape(self, input_shape):
@@ -366,7 +400,25 @@ class EmbeddingSimilarity(keras.layers.Layer):
             "initializer": keras.initializers.serialize(self.initializer),
             "regularizer": keras.regularizers.serialize(self.regularizer),
             "constraint": keras.constraints.serialize(self.constraint),
+            "use_bias": self.use_bias
         }
         base_config = super(EmbeddingSimilarity, self).get_config()
+        config.update(base_config)
+        return config
+
+
+class Scale(keras.layers.Layer):
+    def __init__(self, scale, **kwargs):
+        self.scale = scale
+        super(Scale, self).__init__(**kwargs)
+
+    def call(self, inputs, mask=None, **kwargs):
+        return inputs * self.scale
+
+    def get_config(self):
+        config = {
+            "scale": self.scale,
+        }
+        base_config = super(Scale, self).get_config()
         config.update(base_config)
         return config
