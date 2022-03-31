@@ -118,10 +118,9 @@ class Evaluator(keras.callbacks.Callback):
 
 
 if __name__ == "__main__":
-    evaluator = Evaluator()
     model.fit_generator(
         train_generator.fit_generator(random=True),
         steps_per_epoch=len(train_generator),
         epochs=epochs,
-        callbacks=[evaluator],
+        callbacks=[Evaluator()],
     )
