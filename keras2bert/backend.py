@@ -115,6 +115,7 @@ class Sinusoidal(keras.initializers.Initializer):
                 embeddings[pos, 2 * i + 1] = np.cos(theta)
         return embeddings
 
+
 _INFINITY = 1e12
 
 
