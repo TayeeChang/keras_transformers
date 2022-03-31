@@ -255,7 +255,7 @@ def get_model(vocab_size,
     output = EmbeddingSimilarity(
         use_bias=False,
         name='Embedding-Sim'
-    )(output)
+    )([output, token_embeddings])
 
     return [input_token_ids, input_segment_ids], output
 
@@ -326,10 +326,15 @@ def load_model_weights_from_checkpoint(model,
     model.get_layer(name='Embedding-Position').set_weights([
         loader('gpt/embeddings/position_embeddings')[:config['max_position_embeddings'], :],
     ])
-    model.get_layer(name='Embedding-Norm').set_weights([
-        loader('gpt/embeddings/LayerNorm/gamma'),
-        loader('gpt/embeddings/LayerNorm/beta'),
-    ])
+
+    try:
+        model.get_layer(name='Embedding-Map').set_weights([
+            loader('gpt/embeddings/LayerNorm/gamma'),
+            loader('gpt/embeddings/LayerNorm/beta'),
+        ])
+    except:
+        pass
+
     for i in range(config['num_hidden_layers']):
         try:
             model.get_layer(name='Transformer-%d-MultiHeadSelfAttention' % i)
