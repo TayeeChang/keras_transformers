@@ -8,7 +8,8 @@ class Layer(keras.layers.Layer):
     """
     def __init__(self, **kwargs):
         super(Layer, self).__init__(**kwargs)
-        self.supports_masking= True
+        self.supports_masking = True
+
 
 keras.layers.Layer = Layer
 
@@ -18,8 +19,10 @@ class TokenEmbedding(keras.layers.Embedding):
     """
     def compute_output_shape(self, input_shape):
         return [super(TokenEmbedding, self).compute_output_shape(input_shape), (self.input_dim, self.output_dim)]
+
     def compute_mask(self, inputs, mask=None):
         return [super(TokenEmbedding, self).compute_mask(inputs, mask), None]
+
     def call(self, inputs):
         return [super(TokenEmbedding, self).call(inputs), self.embeddings]
 
@@ -160,7 +163,7 @@ class MultiHeadSelfAttention(keras.layers.Layer):
         self.query_size = query_size
         self.key_size = key_size
         self.feature_dim = output_dim
-        self.attention_dropout_rate=attention_dropout_rate
+        self.attention_dropout_rate = attention_dropout_rate
         self.kernel_initializer = kernel_initializer
         super(MultiHeadSelfAttention, self).__init__(**kwargs)
 
@@ -273,9 +276,7 @@ class FeedForward(keras.layers.Layer):
     def call(self, inputs, **kwargs):
         h = self.h_dense(inputs)
         if 0 < self.dropout_rate < 1.0:
-            h = keras.layers.Dropout(
-            rate=self.dropout_rate
-        )(h)
+            h = keras.layers.Dropout(rate=self.dropout_rate)(h)
         o = self.o_dense(h)
         return o
 
