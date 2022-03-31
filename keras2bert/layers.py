@@ -93,7 +93,6 @@ class PositionEmbedding(keras.layers.Layer):
                 self.embeddings,
                 K.minimum(K.maximum(pos_index, -max_pos), max_pos) + max_pos
             )
-
         elif self.mode == self.MODE_EXPAND:
             if K.dtype(inputs) != 'int32':
                 inputs = K.cast(inputs, 'int32')
