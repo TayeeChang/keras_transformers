@@ -26,6 +26,8 @@ tokenizer = Tokenizer(dict_path, do_lower_case=True)
 
 
 def load_data(file_path):
+    """读取数据
+    """
     data = []
     with codecs.open(file_path, 'r', 'utf-8') as infile:
         for line in infile:
@@ -35,6 +37,8 @@ def load_data(file_path):
 
 
 class DataLoader(DataGenerator):
+    """数据加载器，生成训练批数据
+    """
     def __iter__(self):
         for data in self.batch_generator:
             text, labels = zip(*data)
