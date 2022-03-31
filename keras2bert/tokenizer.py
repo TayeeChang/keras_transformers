@@ -2,13 +2,17 @@ import unicodedata
 import codecs
 import numpy as np
 
+
 def load_vocab(vocab_path):
+    """加载词典
+    """
     token_dict = {}
     with codecs.open(vocab_path, 'r', 'utf-8') as infile:
         for line in infile:
             token = line.strip()
             token_dict[token] = len(token_dict)
     return token_dict
+
 
 class Tokenizer(object):
     """Bert分词器
@@ -122,6 +126,8 @@ class Tokenizer(object):
         return first
 
     def _tokenize(self, text):
+        """核心分词函数
+        """
         if self._do_lower_case:
             text = unicodedata.normalize('NFD', text)
             text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
@@ -142,7 +148,7 @@ class Tokenizer(object):
         return tokens
 
     def _word_piece_tokenize(self, word):
-        """基于word的最大正向匹配法
+        """基于word-piece的最大正向匹配法
         """
         if word in self._token_dict:
             return [word]

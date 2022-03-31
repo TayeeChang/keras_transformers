@@ -1,6 +1,7 @@
 import numpy as np
 from keras2bert.backend import softmax
 
+
 class DataGenerator(object):
     """数据加载器，用于生成训练批数据。
     """
@@ -35,6 +36,7 @@ class DataGenerator(object):
             for d in self.__iter__():
                 yield d
 
+                
 class AutoRegressiveDecoder(object):
     """自回归解码器
         * 波束搜索
@@ -128,6 +130,7 @@ class AutoRegressiveDecoder(object):
             complete_seqs.append(seq)
         return complete_seqs
 
+    
 def viterbi_decode(nodes,
                    trans,
                    start_id=None,
@@ -135,6 +138,7 @@ def viterbi_decode(nodes,
     """viterbi算法求最优路径
         node.shape=(seq_len, num_labels)
         trans.shape=(num_labels, num_labels)
+    本质是动态规划.
     """
     if start_id:
         nodes[0, :start_id] = -1e8
