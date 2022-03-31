@@ -1,6 +1,6 @@
 # keras2bert开源框架
 
-目前支持的模型：   
+目前支持的Transformer模型：   
 - [BERT](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
 - [Roberta](https://arxiv.org/pdf/1907.11692.pdf%5C)   
 - [Albert](https://arxiv.org/pdf/1909.11942.pdf?ref=https://githubhelp.com)  
