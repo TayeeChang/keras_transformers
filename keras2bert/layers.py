@@ -58,7 +58,6 @@ class PositionEmbedding(keras.layers.Layer):
         self.embeddings_regularizer = keras.regularizers.get(embedding_regularizer)
         self.embeddings_constraint = keras.constraints.get(embedding_constraint)
         self.mask_zero = mask_zero
-
         self.embeddings = None
         super(PositionEmbedding, self).__init__(**kwargs)
 
