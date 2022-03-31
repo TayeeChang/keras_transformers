@@ -99,7 +99,7 @@ class PositionEmbedding(keras.layers.Layer):
             return K.gather(
                 self.embeddings,
                 K.minimum(K.maximum(inputs, -self.input_dim), self.input_dim) + self.input_dim
-                )
+            )
         input_shape = K.shape(inputs)
         batch_size, seq_len = input_shape[0], input_shape[1]
         pos_embeddings = K.tile(
