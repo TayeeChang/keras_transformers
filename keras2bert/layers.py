@@ -25,7 +25,7 @@ class TokenEmbedding(keras.layers.Embedding):
 
 
 class PositionEmbedding(keras.layers.Layer):
-    """嵌入式位置编码
+    """位置编码
     支持4种模式
        * Expand mode: negative integers (relative position) could be used in this mode.
        * Add mode
