@@ -103,9 +103,9 @@ class Tokenizer(object):
                 if isinstance(text, (list, tuple)):
                     if len(text) == 2: # 输入为[(first1, second1), (first2, second2), ...]形式
                         first, second = text[0], text[1]
-                    else: # 输入为[(first,), (first, ), ...]形式
+                    else: # 输入为[(first1,), (first2, ), ...]形式
                         first, second = text[0], None
-                else: # 输入为[first, first, ...]形式
+                else: # 输入为[first1, first2, ...]形式
                     first, second = text, None
                 token_id, segment_id = self._encode(first, second, max_len=max_len)
                 token_ids.append(token_id)
