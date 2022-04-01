@@ -22,4 +22,9 @@
    - keras >= 2.3.1  
    - tensorflow == 1.13 or 1.14
    
+## 安装
+    ```shell
+    pip install git+https://github.com/TayeeChang/keras2bert.git
+    ```
+  
 
