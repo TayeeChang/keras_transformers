@@ -9,8 +9,9 @@ class BinaryDiceLoss(Loss):
                  output_dims=None,
                  alpha=0.1,
                  smooth=1,
-                 square_denominator=True):
-        super(BinaryDiceLoss, self).__init__(output_dims)
+                 square_denominator=True,
+                 **kwargs):
+        super(BinaryDiceLoss, self).__init__(output_dims, **kwargs)
         self.alpha = alpha
         self.smooth = smooth
         self.square_denominator = square_denominator
@@ -56,8 +57,9 @@ class MultiClassDiceLoss(Loss):
                  output_dims=None,
                  alpha=0.1,
                  smooth=1,
-                 square_denominator=False):
-        super(MultiClassDiceLoss, self).__init__(output_dims)
+                 square_denominator=False,
+                 **kwargs):
+        super(MultiClassDiceLoss, self).__init__(output_dims, **kwargs)
         self.alpha = alpha
         self.smooth = smooth
         self.square_denominator = square_denominator
@@ -96,8 +98,9 @@ class DiceLoss(Loss):
                  output_dims=None,
                  alpha=0.1,
                  smooth=1,
-                 square_denominator=True):
-        super(DiceLoss, self).__init__(output_dims)
+                 square_denominator=True,
+                 **kwargs):
+        super(DiceLoss, self).__init__(output_dims, **kwargs)
         self.alpha = alpha
         self.smooth = smooth
         self.square_denominator = square_denominator
