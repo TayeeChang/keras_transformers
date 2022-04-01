@@ -35,4 +35,4 @@ python setup.py install
 
 ## 使用
  
- 具体请看example
+ 具体参考example
