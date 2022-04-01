@@ -22,7 +22,7 @@ Transformer家族模型实现，可加载官方预训练权重来支持下游任
 
    环境使用  
    - keras >= 2.3.1  
-   - tensorflow == 1.13 or 1.14
+   - tensorflow == 1.13 or 1.14 (建议)
    
 ## 安装
 ```shell   
