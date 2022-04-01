@@ -29,7 +29,7 @@ setup(
     version=find_version('keras2bert', '__init__.py'),
     packages=find_packages(),
     url='https://github.com/TayeeChang/keras2bert',
-    license='MIT',
+    license='Apache License 2.0',
     author='keras2bert',
     author_email='TayeeChang@gmail.com',
     description='Transformer Family with Keras',
