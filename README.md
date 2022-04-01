@@ -1,4 +1,6 @@
-# keras2bert开源框架
+# Keras BERT
+
+Transformer家族模型实现，可加载官方预训练权重来支持下游任务。
 
 目前支持的Transformer模型：   
 - [BERT](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
@@ -23,8 +25,14 @@
    - tensorflow == 1.13 or 1.14
    
 ## 安装
-    ```shell
-    pip install git+https://github.com/TayeeChang/keras2bert.git
-    ```
-  
+```shell   
+pip install git+https://github.com/TayeeChang/keras2bert.git
+```
+或者
+```shell
+python setup.py install
+```
 
+## 使用
+ 
+ 具体请看example
