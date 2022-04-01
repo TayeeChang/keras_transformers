@@ -1,0 +1,36 @@
+from keras2bert.tokenizer import Tokenizer
+from keras2bert.models import build_bert_model
+import numpy as np
+
+# 模型文件
+config_path = '/kg/bert/chinese_L-12_H-768_A-12/bert_config.json'
+checkpoint_path = '/kg/bert/chinese_L-12_H-768_A-12/bert_model.ckpt'
+dict_path = '/kg/bert/chinese_L-12_H-768_A-12/vocab.txt'
+
+tokenizer = Tokenizer(dict_path, do_lower_case=True)
+text = '实验（英语：experiment）是在设定的条件下，用来检验某种假设，或者验证或质疑某种已经存在的理论而进行的操作'
+tokens = tokenizer.tokenize(text)
+
+# 对 “实验” 进行mask,并使用MLM预测
+tokens[1] = '[MASK]'
+tokens[2] = '[MASK]'
+
+token_ids = tokenizer.convert_tokens_to_ids(tokens)
+token_ids = np.array([token_ids])
+segment_ids = np.zeros_like(token_ids)
+
+# 构建模型
+bert = build_bert_model(config_path, checkpoint_path, with_mlm=True)
+
+# 输出
+output = bert.predict([token_ids, segment_ids])[0][1:3]
+idxs = output.argmax(axis=-1)
+pred_tokens = tokenizer.convert_ids_to_tokens(idxs)
+print(pred_tokens)
+
+"""
+pred_tokens = '实验'
+"""
+
+
+
