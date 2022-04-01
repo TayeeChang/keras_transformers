@@ -6,5 +6,3 @@ from .unilm import build_unilm_model
 from .electra import build_electra_model
 from .gpt import build_gpt_model
 from .gpt2 import build_gpt2_model
-
-__version__ = '0.1.0'
