@@ -18,7 +18,6 @@ tokens = tokenizer.tokenize(text)
 # 对 “实验” 进行mask,并使用MLM预测
 tokens[1] = '[MASK]'
 tokens[2] = '[MASK]'
-
 token_ids = tokenizer.convert_tokens_to_ids(tokens)
 token_ids = np.array([token_ids])
 segment_ids = np.zeros_like(token_ids)
