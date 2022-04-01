@@ -6,12 +6,12 @@ current_path = os.path.abspath(os.path.dirname(__file__))
 
 
 def read_file(*parts):
-    with open(os.path.join(current_path, *parts)) as reader:
+    with open(os.path.join(current_path, *parts), 'r', encoding='utf-8') as reader:
         return reader.read()
 
 
 def get_requirements(*parts):
-    with open(os.path.join(current_path, *parts)) as reader:
+    with open(os.path.join(current_path, *parts), 'r', encoding='utf-8') as reader:
         return list(map(lambda x: x.strip(), reader.readlines()))
 
 
