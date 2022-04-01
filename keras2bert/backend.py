@@ -7,7 +7,6 @@ if 'TF_KERAS' in os.environ and os.environ['TF_KERAS'] != '0':
     import tensorflow
     sys.modules['keras'] = tensorflow.keras
 
-
 import keras
 import keras.backend as K
 
@@ -26,6 +25,17 @@ def gelu_erf(x):
         https://arxiv.org/pdf/1606.08415.pdf
     """
     return 0.5 * x * (1.0 + tf.math.erf(x / np.sqrt(2)))
+
+
+def set_gelu(name):
+    """选择gelu精确算法还是近似算法
+    """
+    name = name.lower()
+    assert name in ['tanh', 'erf'], "set_gelu name must be 'tanh' or 'erf'"
+    if name == 'erf':
+        keras.utils.get_custom_objects()['gelu'] = gelu_erf
+    else:
+        keras.utils.get_custom_objects()['gelu'] = gelu_tanh
 
 
 def softmax(x, axis=-1):
