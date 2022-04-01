@@ -422,3 +422,50 @@ class Scale(keras.layers.Layer):
         base_config = super(Scale, self).get_config()
         config.update(base_config)
         return config
+
+
+class Loss(keras.layers.Layer):
+    """自定义损失层, 可以用来定义复杂的损失，比如Dice Loss
+    """
+    def __init__(self, output_dims=None, **kwargs):
+        super(Loss, self).__init__(**kwargs)
+        self.output_dims = output_dims
+
+    def call(self, inputs, mask=None):
+        loss = self.compute_loss(inputs, mask)
+        self.add_loss(loss)
+        if self.output_dims is None:
+            return inputs
+        elif isinstance(self.output_dims, (list, tuple)):
+            return [inputs[i] for i in self.output_dims]
+        else:
+            return inputs[self.output_dims]
+
+    def compute_loss(self, inputs, mask=None):
+        raise NotImplementedError
+
+    def compute_mask(self, inputs, mask=None):
+        if mask is not None:
+            if self.output_dims is None:
+                return mask
+            elif isinstance(self.output_dims, (list, tuple)):
+                return [mask[i] for i in self.output_dims]
+            else:
+                return mask[self.output_dims]
+        return mask
+
+    def compute_output_shape(self, input_shape):
+        if self.output_dims is None:
+            return input_shape
+        elif isinstance(self.output_dims, (list, tuple)):
+            return [input_shape[i] for i in self.output_dims]
+        else:
+            return input_shape[self.output_dims]
+
+    def get_config(self):
+        config = {
+            "output_dims": self.output_dims
+        }
+        base_config = super(Loss, self).get_config()
+        config.update(base_config)
+        return config
