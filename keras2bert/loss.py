@@ -67,7 +67,7 @@ class MultiClassDiceLoss(Loss):
 
 
 class DiceLoss(Loss):
-    """Dice Loss
+    """Data-Imbalanced Dice Loss
     Reference：
       [Dice Loss for Data-imbalanced NLP Tasks]
       (https://arxiv.org/pdf/1911.02855.pdf?ref=https://githubhelp.com)
