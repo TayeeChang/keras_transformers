@@ -35,4 +35,4 @@ python setup.py install
 
 ## 使用
  
- 具体参考example
+ 具体参考[example](https://github.com/TayeeChang/keras2bert/tree/master/example)
