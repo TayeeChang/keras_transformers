@@ -27,7 +27,6 @@ output = bert.predict([token_ids, segment_ids])[0][1:3]
 idxs = output.argmax(axis=-1)
 pred_tokens = tokenizer.convert_ids_to_tokens(idxs)
 print(pred_tokens)
-
 """
 pred_tokens = '实验'
 """
@@ -45,7 +44,6 @@ segment_ids = np.array([segment_ids])
 
 is_next = bool(bert.predict([token_ids, segment_ids])[0].argmax(axis=-1))
 print('is_next = ', is_next)
-
 """
 is_next = False
 """
