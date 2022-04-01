@@ -108,5 +108,3 @@ class DiceLoss(Loss):
                         (K.sum(K.square(y_pred), axis=1) + K.sum(K.square(y_true), axis=1) + self.smooth))
 
         return 1 - K.mean(dice_eff)
-
-
