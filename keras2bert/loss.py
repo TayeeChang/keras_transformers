@@ -13,7 +13,7 @@ class BinaryDiceLoss(Loss):
         super(BinaryDiceLoss, self).__init__(output_dims)
         self.alpha = alpha
         self.smooth = smooth
-        self.square_demoninator = square_denominator
+        self.square_denominator = square_denominator
 
     def compute_loss(self, inputs, mask=None):
         if mask[1] is None:
@@ -29,7 +29,7 @@ class BinaryDiceLoss(Loss):
         y_pred = ((1 - y_pred) ** self.alpha) * y_pred
         intersection = K.sum(y_pred * y_true, axis=1)
 
-        if not self.square_demoninator:
+        if not self.square_denominator:
             dice_eff = ((2 * intersection + self.smooth) /
                         (K.sum(y_pred, axis=1) + K.sum(y_true, axis=1) + self.smooth))
         else:
@@ -37,6 +37,16 @@ class BinaryDiceLoss(Loss):
                         (K.sum(K.square(y_pred), axis=1) + K.sum(K.square(y_true), axis=1) + self.smooth))
 
         return 1 - K.mean(dice_eff)
+    
+    def get_config(self):
+        config = {
+            "alpha": self.alpha,
+            "smooth": self.smooth,
+            "square_denominator": self.denominator
+        }
+        base_config = super(BinaryDiceLoss, self).get_config()
+        config.update(base_config)
+        return config
 
 
 class MultiClassDiceLoss(Loss):
@@ -50,7 +60,7 @@ class MultiClassDiceLoss(Loss):
         super(MultiClassDiceLoss, self).__init__(output_dims)
         self.alpha = alpha
         self.smooth = smooth
-        self.square_demoninator = square_denominator
+        self.square_denominator = square_denominator
 
     def compute_loss(self, inputs, mask=None):
         y_true, y_pred = inputs
@@ -64,6 +74,16 @@ class MultiClassDiceLoss(Loss):
         for i in range(N):
             total_loss += binaryDiceLoss.compute_loss([y_true[:, :, i], y_pred[:, :, i]], mask)
         return total_loss / N
+    
+    def get_config(self):
+        config = {
+            "alpha": self.alpha,
+            "smooth": self.smooth,
+            "square_denominator": self.denominator
+        }
+        base_config = super(MultiClassDiceLoss, self).get_config()
+        config.update(base_config)
+        return config
 
 
 class DiceLoss(Loss):
@@ -80,7 +100,7 @@ class DiceLoss(Loss):
         super(DiceLoss, self).__init__(output_dims)
         self.alpha = alpha
         self.smooth = smooth
-        self.square_demoninator = square_denominator
+        self.square_denominator = square_denominator
 
     def compute_loss(self, inputs, mask=None):
         if mask[1] is None:
@@ -100,7 +120,7 @@ class DiceLoss(Loss):
         y_pred = ((1 - y_pred) ** self.alpha) * y_pred
         intersection = K.sum(y_pred * y_true, axis=1)
 
-        if not self.square_demoninator:
+        if not self.square_denominator:
             dice_eff = ((2 * intersection + self.smooth) /
                         (K.sum(y_pred, axis=1) + K.sum(y_true, axis=1) + self.smooth))
         else:
@@ -108,3 +128,13 @@ class DiceLoss(Loss):
                         (K.sum(K.square(y_pred), axis=1) + K.sum(K.square(y_true), axis=1) + self.smooth))
 
         return 1 - K.mean(dice_eff)
+    
+    def get_config(self):
+        config = {
+            "alpha": self.alpha,
+            "smooth": self.smooth,
+            "square_denominator": self.denominator
+        }
+        base_config = super(DiceLoss, self).get_config()
+        config.update(base_config)
+        return config
