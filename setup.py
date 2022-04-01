@@ -26,7 +26,7 @@ def find_version(*file_paths):
 
 setup(
     name='keras2bert',
-    version=find_version('keras2bert', 'models', '__init__.py'),
+    version=find_version('keras2bert', '__init__.py'),
     packages=find_packages(),
     url='https://github.com/TayeeChang/keras2bert',
     license='MIT',
