@@ -1,4 +1,4 @@
-from keras2bert.backend import K
+from keras2bert.backend import K, tf
 from keras2bert.layers import Loss
 
 
@@ -43,7 +43,7 @@ class BinaryDiceLoss(Loss):
         config = {
             "alpha": self.alpha,
             "smooth": self.smooth,
-            "square_denominator": self.denominator
+            "square_denominator": self.square_denominator
         }
         base_config = super(BinaryDiceLoss, self).get_config()
         config.update(base_config)
@@ -81,7 +81,7 @@ class MultiClassDiceLoss(Loss):
         config = {
             "alpha": self.alpha,
             "smooth": self.smooth,
-            "square_denominator": self.denominator
+            "square_denominator": self.square_denominator
         }
         base_config = super(MultiClassDiceLoss, self).get_config()
         config.update(base_config)
@@ -136,8 +136,46 @@ class DiceLoss(Loss):
         config = {
             "alpha": self.alpha,
             "smooth": self.smooth,
-            "square_denominator": self.denominator
+            "square_denominator": self.square_denominator
         }
         base_config = super(DiceLoss, self).get_config()
+        config.update(base_config)
+        return config
+
+
+class FocalLoss(Loss):
+    """适用于二分类情形
+    Reference:
+      [Focal Loss for Dense Object Detection]
+      (https://openaccess.thecvf.com/content_ICCV_2017/papers/Lin_Focal_Loss_for_ICCV_2017_paper.pdf)
+    """
+    def __init__(self,
+                 output_dims,
+                 alpha=0.25,
+                 gamma=2,
+                 **kwargs):
+        super(FocalLoss, self).__init__(output_dims, **kwargs)
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def compute_loss(self, inputs, mask=None):
+        if mask[1] is None:
+            mask = 1.0
+        else:
+            mask = K.cast(mask[1], K.floatx())
+
+        y_true, y_pred = inputs
+        y_true = K.cast(y_true, 'int32')
+        y_pred = tf.batch_gather(y_pred, y_true[:, :, None])[:, :, 0]
+        loss = -self.alpha * (1 - y_pred) ** self.gamma * K.log(y_pred)
+        loss = K.sum(loss) / K.sum(mask)
+        return loss
+
+    def get_config(self):
+        config = {
+            "alpha": self.alpha,
+            "gamma": self.gamma
+        }
+        base_config = super(FocalLoss, self).get_config()
         config.update(base_config)
         return config
