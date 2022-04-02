@@ -3,14 +3,14 @@
 Transformer家族模型实现，可加载官方预训练权重来支持下游任务。
 
 目前支持的Transformer模型：   
-- [BERT](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
-- [Roberta](https://arxiv.org/pdf/1907.11692.pdf%5C)   
-- [Albert](https://arxiv.org/pdf/1909.11942.pdf?ref=https://githubhelp.com)  
-- [Nezha](https://arxiv.org/pdf/1909.00204.pdf)   
-- [Unilm](https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)  
-- [Electra](https://openreview.net/pdf?id=r1xMH1BtvB)   
-- [GPT](https://www.cs.ubc.ca/~amuham01/LING530/papers/radford2018improving.pdf)
-- [GPT2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
+- BERT——[下载权重](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
+- Roberta——[下载权重|brightmart版](https://github.com/brightmart/roberta_zh) [下载权重|哈工大版](https://github.com/ymcui/Chinese-BERT-wwm)
+- Albert——[下载权重](https://github.com/brightmart/albert_zh)  
+- Nezha——[下载权重](https://github.com/huawei-noah/Pretrained-Language-Model/tree/master/NEZHA-TensorFlow)   
+- Unilm——[下载权重](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
+- Electra——[下载权重|google版](https://github.com/google-research/electra) [下载权重|哈工大版](https://github.com/ymcui/Chinese-ELECTRA)
+- GPT——[下载权重](https://github.com/bojone/CDial-GPT-tf)
+- GPT2——[下载权重](https://github.com/imcaspar/gpt2-ml)
 
 后续会陆续添加其他Transformer模型。
 
@@ -36,3 +36,14 @@ python setup.py install
 ## 使用
  
  具体参考[example](https://github.com/TayeeChang/keras2bert/tree/master/example)
+ 
+## 引用
+1. <a href="https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ">BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</a>
+2. <a href="https://arxiv.org/pdf/1907.11692.pdf%5C">RoBERTa: A Robustly Optimized BERT Pretraining Approach</a>
+3. <a href="https://arxiv.org/pdf/1909.11942.pdf?ref=https://githubhelp.com">ALBERT: A LITE BERT FOR SELF-SUPERVISED LEARNING OF LANGUAGE REPRESENTATIONS</a>
+4. <a href="https://arxiv.org/pdf/1909.00204.pdf">NEZHA: NEURAL CONTEXTUALIZED REPRESENTATION FOR CHINESE LANGUAGE UNDERSTANDING</a>
+5. <a href="https://arxiv.org/abs/1905.03197">Unified Language Model Pre-training for Natural Language Understanding and Generation</a>
+6. <a href="https://arxiv.org/abs/2003.10555">ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators</a>
+7. <a href="https://www.cs.ubc.ca/~amuham01/LING530/papers/radford2018improving.pdf">Improving Language Understanding by Generative Pre-Training</a>
+8. <a href="http://www.persagen.com/files/misc/radford2019language.pdf">Language Models are Unsupervised Multitask Learners</a>
+9. <a href="https://github.com/CyberZHG/keras-bert">https://github.com/CyberZHG/keras-bert</a>
