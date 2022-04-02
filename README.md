@@ -3,11 +3,11 @@
 Transformer家族模型实现，可加载官方预训练权重来支持下游任务。
 
 目前支持的Transformer模型：   
-- BERT——[下载](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
+- BERT——[下载](https://github.com/google-research/bert)  
 - Roberta——[下载|brightmart版](https://github.com/brightmart/roberta_zh) [下载|哈工大版](https://github.com/ymcui/Chinese-BERT-wwm)
 - Albert——[下载](https://github.com/brightmart/albert_zh)  
 - Nezha——[下载](https://github.com/huawei-noah/Pretrained-Language-Model/tree/master/NEZHA-TensorFlow)   
-- Unilm——[下载](https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)  
+- Unilm——[下载](https://github.com/google-research/bert)  
 - Electra——[下载|google版](https://github.com/google-research/electra) [下载|哈工大版](https://github.com/ymcui/Chinese-ELECTRA)
 - GPT——[下载](https://github.com/bojone/CDial-GPT-tf)
 - GPT2——[下载](https://github.com/imcaspar/gpt2-ml)
