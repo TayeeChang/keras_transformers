@@ -4,7 +4,7 @@ from keras2bert.models import build_bert_model
 from keras2bert.utils import DataGenerator
 from keras2bert.tokenizer import Tokenizer
 from keras.optimizers import Adam
-from keras2bert.optimizer import (
+from keras2bert.optimizers import (
     warp_optimizer_with_warmup,
     wrap_optimizer_with_accumulate_grads,
     wrap_optimizer_with_weight_decay
