@@ -147,7 +147,7 @@ class Lookahead(Optimizer):
         return config
 
 
-def warp_optimizer_with_warmup(optimizer):
+def wrap_optimizer_with_warmup(optimizer):
     class WarmupOptimizer(optimizer):
         """warmup优化器
         """

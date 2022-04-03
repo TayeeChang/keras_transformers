@@ -5,7 +5,7 @@ from keras2bert.utils import DataGenerator
 from keras2bert.tokenizer import Tokenizer
 from keras.optimizers import Adam
 from keras2bert.optimizers import (
-    warp_optimizer_with_warmup,
+    wrap_optimizer_with_warmup,
     wrap_optimizer_with_accumulate_grads,
     wrap_optimizer_with_weight_decay
 )
@@ -70,7 +70,7 @@ model.summary()
 
 # 定义优化器
 adamWD = wrap_optimizer_with_weight_decay(Adam)
-adamWU = warp_optimizer_with_warmup(adamWD)
+adamWU = wrap_optimizer_with_warmup(adamWD)
 adamAcc = wrap_optimizer_with_accumulate_grads(adamWU)
 
 # 模型编译
