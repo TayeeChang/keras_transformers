@@ -43,49 +43,49 @@ class AutoRegressiveDecoder(object):
         * 随机采样
     """
     def __init__(self,
-                 start_id=None,
                  end_id=None,
                  max_step=None):
-        self.start_id = start_id
         self.end = end_id
         self.max_step = max_step
-
-    def predict(self, inputs, outputs):
-        raise NotImplementedError
 
     def beam_search(self,
                     inputs,
                     beam_size=1):
-        outputs = np.array([[self.start_id]]) if self.start_id is not None else np.empty((1, 0), dtype=int)
-        scores = np.zeros(1)
+        """波束搜索算法
+        """
+        V = np.shape(inputs)[-1]
+        beams = None
+        scores = None
         complete_seqs = []
         for step in range(self.max_step):
-            probs = self.predict(inputs, outputs) # (V, )
-            V = probs.shape[-1]
             if step == 0:
-                inputs = [np.repeat(input, beam_size, axis=0) for input in inputs] # (B, S)
-            scores = scores + np.log(probs + 1e-12).reshape(1, -1) # (1, v), (B, V)
-            indices = np.argpartition(scores.reshape(-1), kth=-beam_size, axis=None)[-beam_size:] # (B, )
-            row = indices // V # (B, )
-            col = indices % V # (B, )
-            scores = np.take_along_axis(scores.reshape(-1), indices, axis=-1).reshape(-1, 1) # (B, 1)
-            outputs = np.concatenate([outputs[row], np.reshape(col, (-1, 1))], axis=-1) # (B, t)
-            if any(np.equal(col, self.end)):
-                if col[np.argmax(scores)] == self.end:
-                    complete_seqs.append((outputs[np.argmax(scores)], scores[np.argmax(scores)]))
-                    break
-                indexs = np.where(col == self.end)
-                complete_seqs.append((outputs[indexs], scores[indexs]))
-                outputs = np.delete(outputs, indexs, axis=0)
-                scores = np.delete(scores, indexs, axis=0)
-                beam_size -= len(indexs)
-                if beam_size == 0:
-                    break
+                probs = inputs[0]
+                beams = np.argpartition(probs, kth=-beam_size, axis=-1)[-beam_size:]
+                beams = np.reshape(beams, (-1, 1))
+                scores = np.log(inputs[0][beams])
+            else:
+                scores = scores + np.log(inputs[step]).reshape(1, -1)
+                indices = np.argpartition(scores.reshape(-1), kth=-beam_size, axis=-1)[-beam_size:]
+                row = indices // V
+                col = indices % V
+                scores = np.take_along_axis(scores.reshape(-1), indices, axis=-1).reshape(-1, 1)
+                beams = np.concatenate([beams[row], np.reshape(col, (-1, 1))], axis=-1)
+                if any(col == self.end):
+                    if col[np.argmax(scores)] == self.end:
+                        complete_seqs.append((beams[np.argmax(scores)], scores[np.argmax(scores)]))
+                        break
+                    indexs = np.where(col == self.end)
+                    complete_seqs.append((beams[indexs], scores[indexs]))
+                    beams = np.delete(beams, indexs, axis=0)
+                    scores = np.delete(scores, indexs, axis=0)
+                    beam_size -= len(indexs)
+                    if beam_size == 0:
+                        break
         if complete_seqs:
             return sorted(complete_seqs, key=lambda x: -x[1])[0]
 
-        for output, score in zip(outputs, scores):
-            complete_seqs.append((output, score))
+        for beam, score in zip(beams, scores):
+            complete_seqs.append((beam, score))
         return sorted(complete_seqs, key=lambda x: -x[1])[0]
 
     def random_sample(self,
@@ -93,16 +93,16 @@ class AutoRegressiveDecoder(object):
                       n,
                       topk=None,
                       topp=None):
-        outputs = np.array([[self.start_id]]) if self.start_id is not None else np.empty((1, 0), dtype=int)
+        """随机采样算法
+        支持topk, topp采样
+        """
         complete_seqs = []
+        cur_seqs = np.empty((n, 0))
         indices = None
         assert topk is not None or topp is not None, 'topk and topp can not be None meanwhile!'
         for step in range(self.max_step):
-            probs = self.predict(inputs, outputs)  # (v, )
-            if step == 0:
-                inputs = [np.repeat(input, n, axis=0) for input in inputs] # (n, S)
-                outputs = [np.repeat(outputs, n, axis=0)] # (n, t)
-                probs = np.repeat(np.reshape(probs, (1, -1)), n, axis=0) # (n, v)
+            probs = inputs[step]
+            probs = np.repeat(np.reshape(probs, (1, -1)), n, axis=0)
             if topk:
                 indices = np.argpartition(probs, kth=-topk, axis=-1)
                 probs = np.take_along_axis(probs, indices, axis=-1)
@@ -121,17 +121,17 @@ class AutoRegressiveDecoder(object):
             sample_ids = np.apply_along_axis(sample_func, -1, probs)
             sample_ids = np.reshape(sample_ids, (-1, 1))
             sample_ids = np.take_along_axis(indices, sample_ids, axis=-1)
-            outputs = np.concatenate([outputs, sample_ids], axis=-1)
-            is_end = outputs[:, -1] == self.end
+            cur_seqs = np.concatenate([cur_seqs, sample_ids], axis=-1)
+            is_end = cur_seqs[:, -1] == self.end
             if sum(is_end) > 0:
-                complete_seqs.append(outputs[is_end])
-                outputs = np.delete(outputs, is_end, axis=0)
+                complete_seqs.append(cur_seqs[is_end])
+                cur_seqs = np.delete(cur_seqs, is_end, axis=0)
                 n -= sum(is_end)
-                if len(outputs) == 0:
+                if len(cur_seqs) == 0:
                     break
                 if n == 0:
                     break
-        for seq in outputs:
+        for seq in cur_seqs:
             complete_seqs.append(seq)
         return complete_seqs
 
