@@ -301,7 +301,7 @@ def build_unilm_model(config_file,
                       trainable=True,
                       seq_len=int(1e9),
                       with_nsp=False,
-                      with_mlm=False,
+                      with_mlm=True,
                       **kwargs):
     """Build the model from config file.
     # Reference:
