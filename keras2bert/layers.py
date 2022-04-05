@@ -167,9 +167,6 @@ class MultiHeadSelfAttention(keras.layers.Layer):
 
     def build(self, input_shape):
         super(MultiHeadSelfAttention, self).build(input_shape)
-        if self.feature_dim % self.head_num != 0:
-            raise IndexError('Invalid head number %d with the given input dim %d'
-                             % (self.head_num, self.feature_dim))
 
         self.q_dense = Dense(
             self.head_num * self.query_size,
