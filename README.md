@@ -1,6 +1,6 @@
 # Keras Transformer Family
 
-Transformer家族模型实现，可加载官方预训练权重来支持下游任务。
+Transformer家族模型Keras版实现，可加载官方预训练权重来支持下游任务。
 
 目前支持的Transformer模型：   
 - BERT——[下载](https://github.com/google-research/bert)  
