@@ -146,14 +146,111 @@ class PositionEmbedding(keras.layers.Layer):
         return config
 
 
+class RelativePositionBias(keras.layers.Layer):
+    """Google T5的相对位置偏置
+     # Reference:
+        [Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer]
+        (https://arxiv.org/abs/1910.10683)
+    """
+    def __init__(self,
+                 birectional=True,
+                 num_buckets=32,
+                 max_distance=128,
+                 n_heads=2,
+                 embedding_initializer='uniform',
+                 **kwargs):
+        super(RelativePositionBias, self).__init__(**kwargs)
+        self.bidirectional = birectional
+        self.num_buckets = num_buckets
+        self.max_distance = max_distance
+        self.n_heads = n_heads
+        self.embedding_initializer = embedding_initializer
+
+    def build(self, input_shape):
+        super(RelativePositionBias, self).build(input_shape)
+        self.embeddings = self.add_weight(
+            shape=(self.num_buckets, self.n_heads),
+            initializer=self.embedding_initializer,
+            trainable=True,
+            name='relative_embeddings_t5',
+        )
+
+    def call(self, inputs, mask=None, **kwargs):
+        """
+                   k
+             0   1   2   3
+        q   -1   0   1   2
+            -2  -1   0   1
+            -3  -2  -1   0
+        """
+        q, k = inputs
+        q_index = K.arange(0, K.shape(q)[1], dtype='int32')
+        k_index = K.arange(0, K.shape(k)[1], dtype='int32')
+        relative_position = k_index[None, :] - q_index[:, None]
+        num_buckets = self.num_buckets
+        max_distance = self.max_distance
+
+        ret = 0
+        n = -relative_position
+        if self.bidirectional:
+            num_buckets //= 2
+            ret += K.cast(K.less(n, 0), 'int32') * num_buckets
+            n = K.abs(n)
+        else:
+            n = K.max(n, K.zeros_like(n))
+        # now n is in the range [0, inf)
+        # half of the buckets are for exact increments in positions
+        max_exact = num_buckets // 2
+        is_small = K.less(n, max_exact)
+        # The other half of the buckets are for logarithmically bigger bins in positions up to max_distance
+        val_if_large = max_exact + K.cast(
+            K.log(K.cast(n, K.floatx()) / max_exact) / K.log(max_distance / max_exact)
+            * (num_buckets - max_exact),
+            'int32'
+        )
+        val_if_large = K.minimum(val_if_large, num_buckets - 1)
+        ret += K.switch(is_small, n, val_if_large)
+        values = K.gather(
+            self.embeddings,
+            ret,
+        ) # shape (qlen, klen, num_heads)
+        values = K.expand_dims(
+            K.permute_dimensions(values, [2, 0, 1]),
+            0
+        ) # shape (1, num_heads, qlen, klen)
+        return values
+
+    def compute_mask(self, inputs, mask=None):
+        return mask[0]
+
+    def compute_output_shape(self, input_shape):
+        return (None, None, self.n_heads)
+
+    def get_config(self):
+        config = {
+            "bidirectional": self.bidirectional,
+            "max_distance": self.max_distance,
+            "num_buckets": self.num_buckets,
+            "n_heads": self.n_heads,
+            "embedding_initializer": self.embedding_initializer,
+        }
+        base_config = super(RelativePositionBias, self).get_config()
+        config.update(base_config)
+        return config
+
+
 class MultiHeadSelfAttention(keras.layers.Layer):
     """多头自注意力机制
+    # Reference:
+        [Attention Is All You Need]
+        (https://arxiv.org/abs/1706.03762)
     """
     def __init__(self,
                  head_num,
                  query_size,
                  key_size,
                  output_dim,
+                 use_bias=True,
                  attention_dropout_rate=0.0,
                  kernel_initializer='glorot_uniform',
                  **kwargs):
@@ -161,6 +258,7 @@ class MultiHeadSelfAttention(keras.layers.Layer):
         self.query_size = query_size
         self.key_size = key_size
         self.feature_dim = output_dim
+        self.use_bias = use_bias
         self.attention_dropout_rate = attention_dropout_rate
         self.kernel_initializer = kernel_initializer
         super(MultiHeadSelfAttention, self).__init__(**kwargs)
@@ -170,22 +268,22 @@ class MultiHeadSelfAttention(keras.layers.Layer):
 
         self.q_dense = Dense(
             self.head_num * self.query_size,
-            use_bias=True,
+            use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer
         )
         self.k_dense = Dense(
             self.head_num * self.query_size,
-            use_bias=True,
+            use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer,
         )
         self.v_dense = Dense(
             self.head_num * self.key_size,
-            use_bias=True,
+            use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer,
         )
         self.o_dense = Dense(
             self.feature_dim,
-            use_bias=True,
+            use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer,
         )
 
@@ -234,6 +332,9 @@ class MultiHeadSelfAttention(keras.layers.Layer):
 
 class FeedForward(keras.layers.Layer):
     """逐位置前馈层
+    # Reference:
+        [Attention Is All You Need]
+        (https://arxiv.org/abs/1706.03762)
     """
     def __init__(self,
                  units,
@@ -246,7 +347,9 @@ class FeedForward(keras.layers.Layer):
                  **kwargs):
         super(FeedForward, self).__init__(**kwargs)
         self.units = units
-        self.activation = keras.activations.get(activation)
+        if not isinstance(activation, list):
+            activation = [activation]
+        self.activation = [keras.activations.get(act) for act in activation]
         self.kernel_initializer = keras.initializers.get(kernel_initializer)
         self.regularizer = keras.regularizers.get(regularizer)
         self.constraint = keras.constraints.get(constraint)
@@ -256,12 +359,14 @@ class FeedForward(keras.layers.Layer):
     def build(self, input_shape):
         super(FeedForward, self).build(input_shape)
         output_dim = input_shape[-1]
-        self.h_dense = keras.layers.Dense(
-            units=self.units,
-            use_bias=self.use_bias,
-            activation=self.activation,
-            kernel_initializer=self.kernel_initializer,
-        )
+        for i in range(len(self.activation)):
+            self.h_dense = keras.layers.Dense(
+                units=self.units,
+                use_bias=self.use_bias,
+                activation=self.activation[i],
+                kernel_initializer=self.kernel_initializer,
+            )
+            setattr(self, 'h_dense_%i' % i, self.h_dense)
         self.o_dense = keras.layers.Dense(
             units=output_dim,
             use_bias=self.use_bias,
@@ -269,9 +374,11 @@ class FeedForward(keras.layers.Layer):
         )
 
     def call(self, inputs, **kwargs):
-        h = self.h_dense(inputs)
-        if 0 < self.dropout_rate < 1.0:
-            h = keras.layers.Dropout(rate=self.dropout_rate)(h)
+        h = getattr(self, 'h_dense_0')(inputs)
+        for i in range(1, len(self.activation)):
+            h = h * getattr(self, 'h_dense_%i' %i)(inputs)
+            if 0 < self.dropout_rate < 1.0:
+                h = keras.layers.Dropout(rate=self.dropout_rate)(h)
         o = self.o_dense(h)
         return o
 
@@ -298,6 +405,9 @@ class FeedForward(keras.layers.Layer):
 
 class LayerNormalization(keras.layers.Layer):
     """层归一化
+    # Reference:
+        [Layer Normalization]
+        (https://arxiv.org/pdf/1607.06450.pdf)
     """
     def __init__(self,
                  center=True,
