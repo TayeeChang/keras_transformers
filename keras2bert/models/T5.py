@@ -1,5 +1,4 @@
 from keras2bert.layers import *
-import numpy as np
 import json
 
 
@@ -120,6 +119,23 @@ def _wrap_ffn_layer(name,
 
     return add_layer
 
+
+def _build_shared_embeddings(vocab_size,
+                             embedding_dim,
+                             embedding_initializer,
+                             name):
+    return _SHARED_BLOCK.setdefault(
+        name,
+        TokenEmbedding(
+            input_dim=vocab_size,
+            output_dim=embedding_dim,
+            embeddings_initializer=embedding_initializer,
+            mask_zero=True,
+            name='Embedding-Token'
+            )
+    )
+
+
 def _build_shared_scale(name,
                         scale):
     return _SHARED_BLOCK.setdefault(
@@ -128,8 +144,8 @@ def _build_shared_scale(name,
             scale=scale,
             name='Decoder-Output-Scale'
         )
-
     )
+
 
 def _build_position_bias(inputs,
                          num_buckets,
@@ -379,19 +395,6 @@ def get_decoder_inputs(seq_len=None):
         name='Decoder-Input-%s' % 'Token'
     )
     return input_token_ids_dec
-
-
-def _build_shared_embeddings(vocab_size,
-                             embedding_dim,
-                             embedding_initializer,
-                             name):
-    return _SHARED_BLOCK.setdefault(name, TokenEmbedding(
-        input_dim=vocab_size,
-        output_dim=embedding_dim,
-        embeddings_initializer=embedding_initializer,
-        mask_zero=True,
-        name='Embedding-Token'
-    ))
 
 
 def get_embeddings(inputs,
