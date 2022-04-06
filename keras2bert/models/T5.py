@@ -432,7 +432,7 @@ def get_encoder_model(vocab_size,
                       feed_forward_activation,
                       attention_dropout_rate,
                       hidden_dropout_rate,
-                      bert_initializer,
+                      t5_initializer,
                       **kwargs):
     input_token_ids_enc = get_encoder_inputs(seq_len)
     embeddings, token_embeddings = get_embeddings(
@@ -440,7 +440,7 @@ def get_encoder_model(vocab_size,
         vocab_size=vocab_size,
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
-        embedding_initializer=bert_initializer,
+        embedding_initializer=t5_initializer,
         embedding_dropout_rate=hidden_dropout_rate,
         name='Encoder',
     )
@@ -452,7 +452,7 @@ def get_encoder_model(vocab_size,
         hidden_dim=hidden_dim,
         feed_forward_dim=feed_forward_dim,
         feed_forward_activation=feed_forward_activation,
-        kernel_initializer=bert_initializer,
+        kernel_initializer=t5_initializer,
         attention_dropout_rate=attention_dropout_rate,
         hidden_dropout_rate=hidden_dropout_rate,
         **kwargs,
@@ -478,7 +478,7 @@ def get_decoder_model(encoder_output,
                       feed_forward_activation,
                       attention_dropout_rate,
                       hidden_dropout_rate,
-                      bert_initializer,
+                      t5_initializer,
                       with_lm=False,
                       T5_version='t5.1.0',
                       **kwargs):
@@ -488,7 +488,7 @@ def get_decoder_model(encoder_output,
         vocab_size=vocab_size,
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
-        embedding_initializer=bert_initializer,
+        embedding_initializer=t5_initializer,
         embedding_dropout_rate=hidden_dropout_rate,
         name='Decoder'
     )
@@ -500,7 +500,7 @@ def get_decoder_model(encoder_output,
         hidden_dim=hidden_dim,
         feed_forward_dim=feed_forward_dim,
         feed_forward_activation=feed_forward_activation,
-        kernel_initializer=bert_initializer,
+        kernel_initializer=t5_initializer,
         attention_dropout_rate=attention_dropout_rate,
         hidden_dropout_rate=hidden_dropout_rate,
         **kwargs,
@@ -516,7 +516,7 @@ def get_decoder_model(encoder_output,
         if embedding_dim != hidden_dim:
             decoder_output = keras.layers.Dense(
                 units=embedding_dim,
-                kernel_initializer=bert_initializer,
+                kernel_initializer=t5_initializer,
                 name='Decoder-Output-Map'
             )(decoder_output)
 
@@ -530,7 +530,7 @@ def get_decoder_model(encoder_output,
                 units=vocab_size,
                 use_bias=False,
                 activation='softmax',
-                kernel_initializer=bert_initializer,
+                kernel_initializer=t5_initializer,
                 name='Decoder-Output-LM'
             )(decoder_output)
         return input_token_ids_dec, lm_pred
@@ -549,7 +549,7 @@ def get_model(vocab_size,
               feed_forward_activation,
               attention_dropout_rate,
               hidden_dropout_rate,
-              bert_initializer,
+              t5_initializer,
               with_lm,
               T5_version='t5.1.0',
               **kwargs):
@@ -565,7 +565,7 @@ def get_model(vocab_size,
         feed_forward_activation,
         attention_dropout_rate,
         hidden_dropout_rate,
-        bert_initializer,
+        t5_initializer,
         **kwargs,
     )
     input_token_ids_dec, decoder_output = get_decoder_model(
@@ -581,7 +581,7 @@ def get_model(vocab_size,
         feed_forward_activation,
         attention_dropout_rate,
         hidden_dropout_rate,
-        bert_initializer,
+        t5_initializer,
         with_lm=with_lm,
         T5_version=T5_version,
         **kwargs,
@@ -605,7 +605,7 @@ def build_T5_model(config_file,
     with open(config_file, 'r') as reader:
         config = json.loads(reader.read())
 
-    config['bert_initializer'] = keras.initializers.TruncatedNormal(0, 0.02)
+    config['t5_initializer'] = keras.initializers.TruncatedNormal(0, 0.02)
     inputs, outputs = get_model(
         vocab_size=config['vocab_size'],
         seq_len=None,
@@ -618,7 +618,7 @@ def build_T5_model(config_file,
         feed_forward_activation=config['hidden_act'],
         attention_dropout_rate=config.get('attention_probs_dropout_prob', 0.) ,
         hidden_dropout_rate=config['hidden_dropout_prob'],
-        bert_initializer=config['bert_initializer'],
+        t5_initializer=config['t5_initializer'],
         with_lm=with_lm,
         trainable=trainable,
         T5_version=T5_version,
