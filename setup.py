@@ -25,12 +25,12 @@ def find_version(*file_paths):
 
 
 setup(
-    name='keras2bert',
-    version=find_version('keras2bert', '__init__.py'),
+    name='transformers',
+    version=find_version('transformers', '__init__.py'),
     packages=find_packages(),
     url='https://github.com/TayeeChang/keras2bert',
     license='Apache License 2.0',
-    author='keras2bert',
+    author='transformers',
     author_email='TayeeChang@gmail.com',
     description='Transformer Family with Keras',
     long_description=read_file('README.md'),

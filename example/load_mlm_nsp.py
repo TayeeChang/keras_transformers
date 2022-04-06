@@ -1,5 +1,5 @@
-from keras2bert.tokenizer import Tokenizer
-from keras2bert.models import build_bert_model
+from transformers.tokenizer import Tokenizer
+from transformers.models import build_bert_model
 import numpy as np
 
 # 模型文件

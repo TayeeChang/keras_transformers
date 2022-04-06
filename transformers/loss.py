@@ -1,5 +1,5 @@
-from keras2bert.backend import K, tf
-from keras2bert.layers import Loss
+from transformers.backend import K, tf
+from transformers.layers import Loss
 
 
 class BinaryDiceLoss(Loss):

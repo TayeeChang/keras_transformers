@@ -1,17 +1,6 @@
-from keras2bert.backend import K
-from keras2bert.layers import *
+from transformers.layers import *
 import numpy as np
 import json
-
-
-def _build_unilm_bias(inputs):
-    """用于mask未来信息
-    返回 shape=(b, -1, n, n)
-    """
-    idxs = K.cumsum(inputs, axis=-1)
-    idxs = idxs[:, None] <= idxs[:, :, None]
-    mask = K.cast(idxs, K.floatx())
-    return -(1 - mask[:, None]) * K.infinity()
 
 
 class MultiHeadSelfAttention(MultiHeadSelfAttention):
@@ -43,14 +32,29 @@ class MultiHeadSelfAttention(MultiHeadSelfAttention):
         return o
 
 
+def _build_lm_bias(inputs):
+    """用于mask未来信息
+    返回 shape=(b, -1, n, n)
+    """
+    idxs = K.arange(0, K.shape(inputs)[1])
+    idxs = idxs[:, None] <= idxs[:, :, None]
+    mask = K.cast(idxs, K.floatx())
+    return -(1 - mask[None, None]) * K.infinity()
+
+
 def _wrap_layer(name,
                 input_layer,
                 build_func,
                 dropout_rate=0.0,
                 trainable=True):
     """Wrap layers with dropout, residual, normalization.
+    GPT2 with Pre-Norm.
     """
-    build_output = build_func(input_layer)
+    normal_layer = LayerNormalization(
+        trainable=trainable,
+        name='%s-Norm' % name,
+    )(input_layer)
+    build_output = build_func(normal_layer)
     if 0.0 < dropout_rate < 1.0:
         dropout_layer = keras.layers.Dropout(
             rate=dropout_rate,
@@ -58,28 +62,22 @@ def _wrap_layer(name,
         )(build_output)
     else:
         dropout_layer = build_output
-    if isinstance(input_layer, list):
-        input_layer = input_layer[0]
     add_layer = keras.layers.Add(name='%s-Add' % name)([input_layer, dropout_layer])
-    normal_layer = LayerNormalization(
-        trainable=trainable,
-        name='%s-Norm' % name,
-    )(add_layer)
-    return normal_layer
+
+    return add_layer
 
 
-def _wrap_embedding(name,
-                    input_layer,
-                    build_func,
-                    dropout_rate,
-                    trainable=True):
-    """Wrap Embedding Layer with Norm and Dropout.
+def _wrap_final_layer(name,
+                      input_layer,
+                      dropout_rate,
+                      trainable=True):
+    """Wrap final Layer with Norm and Dropout.
     """
-    build_output = build_func(input_layer)
+
     norm_layer = LayerNormalization(
         trainable=trainable,
         name='%s-Norm' % name,
-    )(build_output)
+    )(input_layer)
     if 0.0 < dropout_rate < 1.0:
         dropout_layer = keras.layers.Dropout(
             rate=dropout_rate,
@@ -147,7 +145,7 @@ def get_encoders(encoder_num,
     last_layer = input_layer
     for i in range(encoder_num):
         last_layer = get_encoder_component(
-            name='Encoder-%d' % i,
+            name='Transformer-%d' % i,
             input_layer=last_layer,
             head_num=head_num,
             hidden_dim=hidden_dim,
@@ -166,23 +164,17 @@ def get_inputs(seq_len=None):
         shape=(seq_len,),
         name='Input-%s' % 'Token'
     )
-    input_segment_ids = keras.layers.Input(
-        shape=(seq_len,),
-        name='Input-%s' % 'Segment'
-    )
-    globals()['attention_bias'] = _build_unilm_bias(input_segment_ids)
-    return input_token_ids, input_segment_ids
+    globals()['attention_bias'] = _build_lm_bias(input_token_ids)
+    return input_token_ids
 
 
 def get_embeddings(inputs,
                    vocab_size,
-                   segment_type_size,
                    embedding_dim,
                    hidden_dim,
                    embedding_initializer,
-                   max_pos_num,
-                   embedding_dropout_rate):
-    input_token_ids, input_segment_ids = inputs
+                   max_pos_num):
+    input_token_ids = inputs
     embedding_token, token_embeddings = TokenEmbedding(
         input_dim=vocab_size,
         output_dim=embedding_dim,
@@ -190,27 +182,15 @@ def get_embeddings(inputs,
         mask_zero=True,
         name='Embedding-Token'
     )(input_token_ids)
-    embedding_segment = Embedding(
-        input_dim=segment_type_size,
-        output_dim=embedding_dim,
-        embeddings_initializer=embedding_initializer,
-        name='Embedding-Segment'
-    )(input_segment_ids)
-    embeddings = keras.layers.Add(
-        name='Embedding-Add-Token-Segment'
-    )([embedding_token, embedding_segment])
-    embeddings = _wrap_embedding(
-        name='Embedding',
-        input_layer=embeddings,
-        build_func=PositionEmbedding(
+
+    embeddings = PositionEmbedding(
             input_dim=max_pos_num,
             output_dim=embedding_dim,
             mode='add',
             embedding_initializer=embedding_initializer,
             name='Embedding-Position'
-        ),
-        dropout_rate=embedding_dropout_rate,
-    )
+    )(embedding_token)
+
     if embedding_dim != hidden_dim:
         embeddings = keras.layers.Dense(
             units=hidden_dim,
@@ -221,7 +201,6 @@ def get_embeddings(inputs,
 
 
 def get_model(vocab_size,
-              segment_type_size,
               max_pos_num,
               seq_len,
               embedding_dim,
@@ -232,20 +211,16 @@ def get_model(vocab_size,
               feed_forward_activation,
               attention_dropout_rate,
               hidden_dropout_rate,
-              bert_initializer,
-              with_nsp=False,
-              with_mlm=False,
+              gpt_initializer,
               **kwargs):
-    input_token_ids, input_segment_ids = get_inputs(seq_len)
+    input_token_ids = get_inputs(seq_len)
     embeddings, token_embeddings = get_embeddings(
-        inputs=[input_token_ids, input_segment_ids],
+        inputs=input_token_ids,
         vocab_size=vocab_size,
-        segment_type_size=segment_type_size,
         max_pos_num=max_pos_num,
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
-        embedding_initializer=bert_initializer,
-        embedding_dropout_rate=hidden_dropout_rate,
+        embedding_initializer=gpt_initializer,
     )
     output = get_encoders(
         encoder_num=transformer_num,
@@ -254,59 +229,34 @@ def get_model(vocab_size,
         hidden_dim=hidden_dim,
         feed_forward_dim=feed_forward_dim,
         feed_forward_activation=feed_forward_activation,
-        kernel_initializer=bert_initializer,
+        kernel_initializer=gpt_initializer,
         attention_dropout_rate=attention_dropout_rate,
         hidden_dropout_rate=hidden_dropout_rate,
         **kwargs,
     )
+    output = _wrap_final_layer(
+        name='Final-Layer',
+        input_layer=output,
+        dropout_rate=hidden_dropout_rate
+    )(output)
 
-    nsp_pred, mlm_pred = None, None
-    if with_nsp:
-        cls_output = Lambda(
-            name='Extract-CLS',
-            function=lambda x: x[:, 0]
-        )(output)
-        nsp_dense = keras.layers.Dense(
-            units=hidden_dim,
-            activation='tanh',
-            name='NSP-Dense',
-        )(cls_output)
-        nsp_pred = keras.layers.Dense(
-            units=2,
-            activation='softmax',
-            name='NSP-Prob'
-        )(nsp_dense)
+    output = EmbeddingSimilarity(
+        use_bias=False,
+        name='Embedding-Sim'
+    )([output, token_embeddings])
 
-    if with_mlm:
-        mlm_dense = keras.layers.Dense(
-            units=hidden_dim,
-            activation=feed_forward_activation,
-            name='MLM-Dense',
-        )(output)
-        mlm_norm = LayerNormalization(name='MLM-Norm')(mlm_dense)
-        mlm_pred = EmbeddingSimilarity(name='MLM-Prob')([mlm_norm, token_embeddings])
-
-    if with_nsp and with_mlm:
-        output = [nsp_pred, mlm_pred]
-    elif with_nsp:
-        output = nsp_pred
-    elif with_mlm:
-        output = mlm_pred
-
-    return [input_token_ids, input_segment_ids], output
+    return input_token_ids, output
 
 
-def build_unilm_model(config_file,
-                      checkpoint_file,
-                      trainable=True,
-                      seq_len=int(1e9),
-                      with_nsp=False,
-                      with_mlm=True,
-                      **kwargs):
+def build_gpt2_model(config_file,
+                     checkpoint_file,
+                     trainable=True,
+                     seq_len=int(1e9),
+                     **kwargs):
     """Build the model from config file.
     # Reference:
-        [Unified Language Model Pre-training for Natural Language Understanding and Generation]
-        (https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)
+        [Language Models are Unsupervised Multitask Learners]
+        (https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
 
     """
     with open(config_file, 'r') as reader:
@@ -315,10 +265,9 @@ def build_unilm_model(config_file,
     if seq_len is not None:
         config['max_position_embeddings'] = min(seq_len, config['max_position_embeddings'])
 
-    config['bert_initializer'] = keras.initializers.TruncatedNormal(0, 0.02)
+    config['gpt_initializer'] = keras.initializers.TruncatedNormal(0, 0.02)
     inputs, outputs = get_model(
         vocab_size=config['vocab_size'],
-        segment_type_size=config['type_vocab_size'],
         max_pos_num=config['max_position_embeddings'],
         seq_len=None,
         embedding_dim=config.get('embedding_size', config.get('hidden_size')),
@@ -329,9 +278,7 @@ def build_unilm_model(config_file,
         feed_forward_activation=config['hidden_act'],
         attention_dropout_rate=config['attention_probs_dropout_prob'],
         hidden_dropout_rate=config['hidden_dropout_prob'],
-        bert_initializer=config['bert_initializer'],
-        with_nsp=with_nsp,
-        with_mlm=with_mlm,
+        gpt_initializer=config['gpt_initializer'],
         trainable=trainable,
         **kwargs,
     )
@@ -339,9 +286,7 @@ def build_unilm_model(config_file,
     load_model_weights_from_checkpoint(
         model,
         config,
-        checkpoint_file,
-        with_mlm=with_mlm,
-        with_nsp=with_nsp,
+        checkpoint_file
     )
     return model
 
@@ -354,74 +299,65 @@ def checkpoint_loader(checkpoint_file):
 
 def load_model_weights_from_checkpoint(model,
                                        config,
-                                       checkpoint_file,
-                                       with_nsp=False,
-                                       with_mlm=False):
+                                       checkpoint_file):
     """Load trained official model from checkpoint.
     """
     loader = checkpoint_loader(checkpoint_file)
 
     model.get_layer(name='Embedding-Token').set_weights([
-        loader('bert/embeddings/word_embeddings'),
+        loader('gpt/embeddings/word_embeddings'),
     ])
     model.get_layer(name='Embedding-Segment').set_weights([
-        loader('bert/embeddings/token_type_embeddings'),
+        loader('gpt/embeddings/token_type_embeddings'),
     ])
     model.get_layer(name='Embedding-Position').set_weights([
-        loader('bert/embeddings/position_embeddings')[:config['max_position_embeddings'], :],
+        loader('gpt/embeddings/position_embeddings')[:config['max_position_embeddings'], :],
     ])
     model.get_layer(name='Embedding-Norm').set_weights([
-        loader('bert/embeddings/LayerNorm/gamma'),
-        loader('bert/embeddings/LayerNorm/beta'),
+        loader('gpt/embeddings/LayerNorm/gamma'),
+        loader('gpt/embeddings/LayerNorm/beta'),
     ])
+
+    try:
+        model.get_layer(name='Embedding-Map').set_weights([
+            loader('gpt/embeddings/LayerNorm/gamma'),
+            loader('gpt/embeddings/LayerNorm/beta'),
+        ])
+    except:
+        pass
+
     for i in range(config['num_hidden_layers']):
         try:
-            model.get_layer(name='Encoder-%d-MultiHeadSelfAttention' % i)
+            model.get_layer(name='Transformer-%d-MultiHeadSelfAttention' % i)
         except ValueError as e:
             continue
-        model.get_layer(name='Encoder-%d-MultiHeadSelfAttention' % i).set_weights([
-            loader('bert/encoder/layer_%d/attention/self/query/kernel' % i),
-            loader('bert/encoder/layer_%d/attention/self/query/bias' % i),
-            loader('bert/encoder/layer_%d/attention/self/key/kernel' % i),
-            loader('bert/encoder/layer_%d/attention/self/key/bias' % i),
-            loader('bert/encoder/layer_%d/attention/self/value/kernel' % i),
-            loader('bert/encoder/layer_%d/attention/self/value/bias' % i),
-            loader('bert/encoder/layer_%d/attention/output/dense/kernel' % i),
-            loader('bert/encoder/layer_%d/attention/output/dense/bias' % i),
+        model.get_layer(name='Transformer-%d-MultiHeadSelfAttention' % i).set_weights([
+            loader('gpt/transformer/layer_%d/attention/self/query/kernel' % i),
+            loader('gpt/transformer/layer_%d/attention/self/query/bias' % i),
+            loader('gpt/transformer/layer_%d/attention/self/key/kernel' % i),
+            loader('gpt/transformer/layer_%d/attention/self/key/bias' % i),
+            loader('gpt/transformer/layer_%d/attention/self/value/kernel' % i),
+            loader('gpt/transformer/layer_%d/attention/self/value/bias' % i),
+            loader('gpt/transformer/layer_%d/attention/output/dense/kernel' % i),
+            loader('gpt/transformer/layer_%d/attention/output/dense/bias' % i),
         ])
-        model.get_layer(name='Encoder-%d-MultiHeadSelfAttention-Norm' % i).set_weights([
-            loader('bert/encoder/layer_%d/attention/output/LayerNorm/gamma' % i),
-            loader('bert/encoder/layer_%d/attention/output/LayerNorm/beta' % i),
+        model.get_layer(name='Transformer-%d-MultiHeadSelfAttention-Norm' % i).set_weights([
+            loader('gpt/transformer/layer_%d/attention/input/LayerNorm/gamma' % i),
+            loader('gpt/transformer/layer_%d/attention/input/LayerNorm/beta' % i),
         ])
-        model.get_layer(name='Encoder-%d-FeedForward' % i).set_weights([
-            loader('bert/encoder/layer_%d/intermediate/dense/kernel' % i),
-            loader('bert/encoder/layer_%d/intermediate/dense/bias' % i),
-            loader('bert/encoder/layer_%d/output/dense/kernel' % i),
-            loader('bert/encoder/layer_%d/output/dense/bias' % i),
+        model.get_layer(name='Transformer-%d-FeedForward' % i).set_weights([
+            loader('gpt/transformer/layer_%d/intermediate/dense/kernel' % i),
+            loader('gpt/transformer/layer_%d/intermediate/dense/bias' % i),
+            loader('gpt/transformer/layer_%d/output/dense/kernel' % i),
+            loader('gpt/transformer/layer_%d/output/dense/bias' % i),
         ])
-        model.get_layer(name='Encoder-%d-FeedForward-Norm' % i).set_weights([
-            loader('bert/encoder/layer_%d/output/LayerNorm/gamma' % i),
-            loader('bert/encoder/layer_%d/output/LayerNorm/beta' % i),
+        model.get_layer(name='Transformer-%d-FeedForward-Norm' % i).set_weights([
+            loader('gpt/transformer/layer_%d/input/LayerNorm/gamma' % i),
+            loader('gpt/transformer/layer_%d/input/LayerNorm/beta' % i),
         ])
 
-    if with_mlm:
-        model.get_layer(name='MLM-Dense').set_weights([
-            loader('cls/predictions/transform/dense/kernel'),
-            loader('cls/predictions/transform/dense/bias'),
-        ])
-        model.get_layer(name='MLM-Norm').set_weights([
-            loader('cls/predictions/transform/LayerNorm/gamma'),
-            loader('cls/predictions/transform/LayerNorm/beta'),
-        ])
-        model.get_layer(name='MLM-Prob').set_weights([
-            loader('cls/predictions/output_bias'),
-        ])
-    if with_nsp:
-        model.get_layer(name='NSP-Dense').set_weights([
-            loader('bert/pooler/dense/kernel'),
-            loader('bert/pooler/dense/bias'),
-        ])
-        model.get_layer(name='NSP-Prob').set_weights([
-            np.transpose(loader('cls/seq_relationship/output_weights')),
-            loader('cls/seq_relationship/output_bias'),
-        ])
+    model.get_layer(name='Final-Layer-Norm').set_weights([
+        loader('gpt/output/LayerNorm/beta'),
+        loader('gpt/output/LayerNorm/gamma'),
+    ])
+

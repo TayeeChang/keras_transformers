@@ -1,4 +1,4 @@
-from keras2bert.backend import keras, K, mask_sequences
+from transformers.backend import keras, K, mask_sequences
 from keras.layers import *
 import tensorflow as tf
 

@@ -1,5 +1,5 @@
 import numpy as np
-from keras2bert.backend import softmax
+from transformers.backend import softmax
 
 
 class DataGenerator(object):
