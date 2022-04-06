@@ -49,4 +49,5 @@ python setup.py install
 7. <a href="https://www.cs.ubc.ca/~amuham01/LING530/papers/radford2018improving.pdf">Improving Language Understanding by Generative Pre-Training</a>
 8. <a href="http://www.persagen.com/files/misc/radford2019language.pdf">Language Models are Unsupervised Multitask Learners</a>
 9. <a href="https://arxiv.org/abs/1910.10683">Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer</a>
-10. <a href="https://github.com/CyberZHG/keras-bert">https://github.com/CyberZHG/keras-bert</a>
+10. <a href="Attention Is All You Need">https://proceedings.neurips.cc/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf</a>
+11. <a href="https://github.com/CyberZHG/keras-bert">https://github.com/CyberZHG/keras-bert</a>
