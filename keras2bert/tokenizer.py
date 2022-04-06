@@ -35,6 +35,10 @@ class Tokenizer(object):
         self._token_sep = token_sep
         self._token_unk = token_unk
         self._token_pad = token_pad
+        self._token_cls_id = self._token_dict[self._token_cls]
+        self._token_sep_id = self._token_dict[self._token_sep]
+        self._token_unk_id = self._token_dict[self._token_unk]
+        self._token_pad_id = self._token_dict[self._token_pad]
         self._do_lower_case = do_lower_case
 
     @staticmethod
