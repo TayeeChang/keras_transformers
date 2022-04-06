@@ -11,6 +11,8 @@ Transformer家族模型实现，可加载官方预训练权重来支持下游任
 - Electra——[下载|google版](https://github.com/google-research/electra) [下载|哈工大版](https://github.com/ymcui/Chinese-ELECTRA)
 - GPT——[下载](https://github.com/bojone/CDial-GPT-tf)
 - GPT2——[下载](https://github.com/imcaspar/gpt2-ml)
+- T5.1.1——[下载](https://github.com/google-research/text-to-text-transfer-transformer/blob/main/released_checkpoints.md#t511)  
+- T5——[下载](https://github.com/google-research/text-to-text-transfer-transformer)
 
 后续会陆续添加其他Transformer模型。
 
@@ -46,4 +48,5 @@ python setup.py install
 6. <a href="https://arxiv.org/abs/2003.10555">ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators</a>
 7. <a href="https://www.cs.ubc.ca/~amuham01/LING530/papers/radford2018improving.pdf">Improving Language Understanding by Generative Pre-Training</a>
 8. <a href="http://www.persagen.com/files/misc/radford2019language.pdf">Language Models are Unsupervised Multitask Learners</a>
-9. <a href="https://github.com/CyberZHG/keras-bert">https://github.com/CyberZHG/keras-bert</a>
+9. <a href="https://arxiv.org/abs/1910.10683">Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer</a>
+10. <a href="https://github.com/CyberZHG/keras-bert">https://github.com/CyberZHG/keras-bert</a>
