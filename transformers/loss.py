@@ -1,4 +1,4 @@
-from transformers.backend import K, tf
+from transformers.backend import keras, K, tf
 from transformers.layers import Loss
 
 
@@ -179,3 +179,13 @@ class FocalLoss(Loss):
         base_config = super(FocalLoss, self).get_config()
         config.update(base_config)
         return config
+
+
+custom_objects = {
+    "BinaryDiceLoss": BinaryDiceLoss,
+    "MultiClassDiceLoss": MultiClassDiceLoss,
+    "DiceLoss": DiceLoss,
+    "FocalLoss": FocalLoss,
+}
+
+keras.utils.get_custom_objects().update(custom_objects)
