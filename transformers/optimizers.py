@@ -244,3 +244,11 @@ def wrap_optimizer_with_accumulate_grads(optimizer):
             config.update(base_config)
             return config
     return AccumulateGradsOptimizer
+
+
+custom_object = {
+    "RAdam": RAdam,
+    "Lookahead": Lookahead,
+}
+
+keras.utils.get_custom_objects().update(custom_object)
