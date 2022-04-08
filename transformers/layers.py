@@ -576,3 +576,107 @@ class Loss(keras.layers.Layer):
         base_config = super(Loss, self).get_config()
         config.update(base_config)
         return config
+
+
+class ConditionalRandomField(keras.layers.Layer):
+    """自定义条件随机场层
+    # Reference:
+        https://github.com/bojone/bert4keras/blob/master/bert4keras/layers.py # 1060
+    """
+    def __init__(self, lr_multiplier, **kwargs):
+        super(ConditionalRandomField, self).__init__(**kwargs)
+        self.lr_multiplier = lr_multiplier
+
+    def build(self, input_shape):
+        self._trans = self.add_weight(
+            shape=(input_shape[-1], input_shape[-1]),
+            name='CRF-Trans',
+            initializer='glorot_uniform',
+            trainable=True
+        )
+        super(ConditionalRandomField, self).build(input_shape)
+
+    @property
+    def trans(self):
+        if self.lr_multiplier == 1:
+            return self._trans
+        else:
+            return self.lr_multiplier * self._trans
+
+    def call(self, inputs, mask=None, **kwargs):
+        """相当于identity变换.
+        """
+        self._mask = K.cast(mask, K.floatx())
+        return inputs
+
+    def cal_real_path_score(self, y_true, y_pred):
+        emission_scores = tf.einsum('bnc, bnc ->b', y_true, y_pred)
+        transition_score = tf.einsum('bni, ij, bnj ->b', y_true[:, :-1], self.trans, y_true[:, 1:])
+        return emission_scores + transition_score
+
+    def cal_step_path_score(self, inputs, states):
+        states = K.expand_dims(states[0], 2) # (batch_size, out_dim, 1)
+        trans = K.expand_dims(states, 0) # (1, out_dim, out_dim)
+        step_scores = K.logsumexp(states + trans, axis=1)
+        step_scores += inputs
+        return step_scores, [step_scores]
+
+    def dense_loss(self, y_true, y_pred):
+        self._mask = K.expand_dims(self._mask, -1)
+        y_true, y_pred = y_true * self._mask, y_pred * self._mask
+        real_path_score = self.cal_real_path_score(y_true, y_pred)
+        all_paths_score, _, _ = K.rnn(
+            self.cal_step_path_score,
+            inputs=y_pred[:, 1:],
+            initial_states=y_pred[:, :1],
+            mask=self._mask[:, 1:],
+            input_length=K.int_shape(y_pred)[1]-1,
+        )
+        return K.logsumexp(all_paths_score) - real_path_score
+
+    def sparse_loss(self, y_true, y_pred):
+        y_true = K.one_hot(y_true, K.shape(y_pred)[-1])
+        assert K.int_shape(y_true) == K.int_shape(y_pred), 'the dimension of y_true, y_pred do not match.'
+        loss = self.dense_loss(y_true, y_pred)
+        return loss
+
+    def dense_accuracy(self, y_true, y_pred):
+        y_true = K.argmax(y_true, axis=-1)
+        return self.sparse_accuracy(y_true, y_pred)
+
+    def sparse_accuracy(self, y_true, y_pred):
+        """注意keras默认y_true和y_pred形状一致, 因此使用sparse y_true时，需要reshape.
+        """
+        y_true = K.reshape(y_true, K.shape(y_pred)[:-1])
+        y_true = K.cast(y_true, 'int32')
+        y_pred = K.argmax(y_pred, axis=-1)
+        y_pred = K.cast(y_pred, 'int32')
+        accuracy = K.sum(K.cast(K.equal(y_true, y_pred), K.floatx()) * self._mask) / K.sum(self._mask)
+        return accuracy
+
+    def compute_mask(self, inputs, mask=None):
+        return None
+
+    def get_config(self):
+        config = {
+            "lr_multiplier": self.lr_multiplier
+        }
+        base_config = super(ConditionalRandomField, self).get_config()
+        config.update(base_config)
+        return config
+
+
+custom_objects = {
+    "TokenEmbedding": TokenEmbedding,
+    "PositionEmbedding": PositionEmbedding,
+    "RelativePositionBias": RelativePositionBias,
+    "MultiHeadSelfAttention": MultiHeadSelfAttention,
+    "FeedForward": FeedForward,
+    "LayerNormalization": LayerNormalization,
+    "EmbeddingSimilarity": EmbeddingSimilarity,
+    "Scale": Scale,
+    "Loss": Loss,
+    "ConditionalRandomField": ConditionalRandomField,
+}
+
+keras.utils.get_custom_objects().update(custom_objects)
