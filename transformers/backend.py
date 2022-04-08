@@ -64,50 +64,6 @@ def mask_sequences(x, mask, axis=1, value=None):
     return x
 
 
-def pad_sequences(sequences,
-                  axis=1,
-                  maxlen=None,
-                  padding='post',
-                  truncating='post',
-                  value=0.):
-    """用于序列填充或者截断.
-    """
-    if axis < 0:
-        axis = np.ndim(sequences[0]) + 1 + axis
-    assert axis >= 1, 'Check the padding axis, the first dimention means the batch dim, ' \
-                      'which can not be padded.'
-    sample_num = len(sequences)
-    padding_dims = [np.shape(x)[axis-1] for x in sequences]
-    if maxlen is None:
-        maxlen = max(padding_dims)
-    shape = np.shape(sequences[0])
-    shape = (sample_num,) +  shape[:axis-1] + (maxlen, ) +  shape[axis:]
-    pad_widths = [[[0, 0] for _ in range(len(shape)-1)]
-                 for _ in range(sample_num)]
-    assert truncating in ['pre', 'post'], "truncating mode must be 'pre' or 'post'"
-    assert padding in ['pre', 'post'], "padding mode must be 'pre' or 'post'"
-    pad_seq = []
-    for i in range(sample_num):
-        pad_dim = padding_dims[i]
-        seq = np.asarray(sequences[i])
-        if pad_dim > maxlen:
-            seq = np.reshape(seq, (int(np.prod(shape[1:axis])), -1) + shape[axis + 1:])
-            if truncating == 'pre':
-                seq = np.reshape(seq[:, -maxlen:], shape[1: axis] + (maxlen,) + shape[axis + 1:])
-            elif truncating == 'post':
-                seq = np.reshape(seq[:, :maxlen], (shape[1: axis]) + (maxlen,) + shape[axis + 1:])
-            pad_seq.append(seq)
-        else:
-            pad_width = pad_widths[i]
-            if padding == 'pre':
-                pad_width[axis-1][0] = maxlen - pad_dim
-            elif padding == 'post':
-                pad_width[axis-1][1] = maxlen - pad_dim
-            seq = np.pad(seq, pad_width=pad_width, mode='constant', constant_values=value)
-            pad_seq.append(seq)
-    return np.asarray(pad_seq, dtype=object)
-
-
 class Sinusoidal(keras.initializers.Initializer):
     """Sin-Cos 位置嵌入初始化器.
     # 引用:
