@@ -1,7 +1,7 @@
 import codecs
-from transformers.backend import keras, pad_sequences
+from transformers.backend import keras
 from transformers.models import build_bert_model
-from transformers.utils import DataGenerator
+from transformers.utils import DataGenerator, pad_sequences
 from transformers.tokenizer import Tokenizer
 from keras.optimizers import Adam
 from transformers.optimizers import (
