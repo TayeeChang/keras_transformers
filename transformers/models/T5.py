@@ -22,6 +22,11 @@ class MultiHeadSelfAttention(MultiHeadSelfAttention):
         # T5相对位置编码
         a = a + inputs[3]
         a = a / self.query_size ** 0.5
+
+        lm_bias=inputs[-1]
+        if lm_bias:
+            # attention偏置，用于防止看见未来信息
+            a = a + globals()['attention_bias']
         a = mask_sequences(a, mask[1], axis=-1, value='-inf')
         # 将attention score归一化成概率分布
         a = K.softmax(a, axis=-1)
@@ -39,11 +44,22 @@ class MultiHeadSelfAttention(MultiHeadSelfAttention):
         return input_shape[0]
 
 
+def _build_lm_bias(inputs):
+    """用于mask未来信息
+    返回 shape=(b, -1, n, n)
+    """
+    idxs = K.arange(0, K.shape(inputs)[1])
+    idxs = idxs[:, None] <= idxs[:, :, None]
+    mask = K.cast(idxs, K.floatx())
+    return -(1 - mask[None, None]) * K.infinity()
+
+
 def _wrap_self_layer(name,
                      input_layer,
                      build_func,
                      dropout_rate=0.0,
-                     trainable=True):
+                     trainable=True,
+                     lm_bias=None):
     """Wrap layers with dropout, residual, normalization.
     T5 with Pre-Norm.
     """
@@ -53,7 +69,8 @@ def _wrap_self_layer(name,
         trainable=trainable,
         name='%s-Norm' % name,
     )(input_layer)
-    build_output = build_func([normal_layer, normal_layer, normal_layer, relative_pos_bias])
+
+    build_output = build_func([normal_layer, normal_layer, normal_layer, relative_pos_bias, lm_bias])
 
     if 0.0 < dropout_rate < 1.0:
         dropout_layer = keras.layers.Dropout(
@@ -80,7 +97,7 @@ def _wrap_cross_layer(name,
         trainable=trainable,
         name='%s-Norm' % name,
     )(input_layer)
-    build_output = build_func([normal_layer, encoder_output, encoder_output, relative_bias])
+    build_output = build_func([normal_layer, encoder_output, encoder_output, relative_bias, None])
 
     if 0.0 < dropout_rate < 1.0:
         dropout_layer = keras.layers.Dropout(
@@ -281,6 +298,7 @@ def get_decoder_component(name,
         ),
         dropout_rate=hidden_dropout_rate,
         trainable=trainable,
+        lm_bias=True,
     )
     cross_layer = _wrap_cross_layer(
         name=cross_attention_name,
@@ -394,6 +412,7 @@ def get_decoder_inputs(seq_len=None):
         shape=(seq_len,),
         name='Decoder-Input-%s' % 'Token'
     )
+    globals()['attention_bias'] = _build_lm_bias(input_token_ids_dec)
     return input_token_ids_dec
 
 
