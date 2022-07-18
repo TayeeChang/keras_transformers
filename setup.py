@@ -28,7 +28,7 @@ setup(
     name='transformers',
     version=find_version('transformers', '__init__.py'),
     packages=find_packages(),
-    url='https://github.com/TayeeChang/keras2bert',
+    url='https://github.com/TayeeChang/transformers',
     license='Apache License 2.0',
     author='transformers',
     author_email='TayeeChang@gmail.com',
