@@ -30,7 +30,7 @@ setup(
     packages=find_packages(),
     url='https://github.com/TayeeChang/transformers',
     license='Apache License 2.0',
-    author='transformers',
+    author='tayee',
     author_email='TayeeChang@gmail.com',
     description='Transformer Family with Keras',
     long_description=read_file('README.md'),
