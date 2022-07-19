@@ -578,7 +578,7 @@ class Loss(keras.layers.Layer):
         return config
 
 
-class ConditionalRandomField(keras.layers.Layer):
+class ConditionalRandomField(Layer):
     """自定义条件随机场层
     # Reference:
         https://github.com/bojone/bert4keras/blob/master/bert4keras/layers.py # 1060
@@ -594,6 +594,8 @@ class ConditionalRandomField(keras.layers.Layer):
             initializer='glorot_uniform',
             trainable=True
         )
+        if self.lr_multiplier != 1:
+            K.set_value(self._trans, K.eval(self._trans) / self.lr_multiplier)
         super(ConditionalRandomField, self).build(input_shape)
 
     @property
@@ -616,7 +618,7 @@ class ConditionalRandomField(keras.layers.Layer):
 
     def cal_step_path_score(self, inputs, states):
         states = K.expand_dims(states[0], 2) # (batch_size, out_dim, 1)
-        trans = K.expand_dims(states, 0) # (1, out_dim, out_dim)
+        trans = K.expand_dims(self.trans, 0) # (1, out_dim, out_dim)
         step_scores = K.logsumexp(states + trans, axis=1)
         step_scores += inputs
         return step_scores, [step_scores]
@@ -628,14 +630,16 @@ class ConditionalRandomField(keras.layers.Layer):
         all_paths_score, _, _ = K.rnn(
             self.cal_step_path_score,
             inputs=y_pred[:, 1:],
-            initial_states=y_pred[:, :1],
+            initial_states=[y_pred[:, 0]],
             mask=self._mask[:, 1:],
-            input_length=K.int_shape(y_pred)[1]-1,
+            input_length=K.int_shape(y_pred[:, 1:])[1],
         )
         return K.logsumexp(all_paths_score) - real_path_score
 
     def sparse_loss(self, y_true, y_pred):
-        y_true = K.one_hot(y_true, K.shape(y_pred)[-1])
+        y_true = K.reshape(y_true, K.shape(y_pred)[:-1])
+        y_true = K.cast(y_true, 'int32')
+        y_true = K.one_hot(y_true, K.int_shape(y_pred)[-1])
         assert K.int_shape(y_true) == K.int_shape(y_pred), 'the dimension of y_true, y_pred do not match.'
         loss = self.dense_loss(y_true, y_pred)
         return loss
