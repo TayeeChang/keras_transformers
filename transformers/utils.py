@@ -43,7 +43,7 @@ def pad_sequences(sequences,
                 pad_width[axis-1][1] = maxlen - pad_dim
             seq = np.pad(seq, pad_width=pad_width, mode='constant', constant_values=value)
             pad_seq.append(seq)
-    return np.asarray(pad_seq, dtype=object)
+    return np.asarray(pad_seq)
 
 
 class DataGenerator(object):
