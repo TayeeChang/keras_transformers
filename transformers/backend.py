@@ -102,6 +102,7 @@ symbolic = identity
 if hasattr(K, 'symbolic'):
     symbolic = K.symbolic
 
+K.logsumexp = getattr(K, 'logsumexp', None) or tf.reduce_logsumexp
 K.infinity = infinity
 K.set_infinity = set_infinity
 K.symbolic = symbolic
