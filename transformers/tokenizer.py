@@ -79,11 +79,12 @@ class Tokenizer(object):
     def convert_id_to_token(self, id):
         return self._token_dict_inv.get(id, self.TOKEN_UNK)
 
-    def tokenize(self, first, second=None):
+    def tokenize(self, first, second=None, max_len=None):
         """实现分词功能
         """
         first_tokens = self._tokenize(first)
         second_tokens = self._tokenize(second) if second is not None else None
+        self._truncate(first_tokens, second_tokens, max_len)
         tokens, _, _ = self._pack(first_tokens, second_tokens)
         return tokens
 
