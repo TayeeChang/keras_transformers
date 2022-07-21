@@ -634,7 +634,7 @@ class ConditionalRandomField(Layer):
             mask=self._mask[:, 1:],
             input_length=K.int_shape(y_pred[:, 1:])[1],
         )
-        return K.logsumexp(all_paths_score) - real_path_score
+        return K.logsumexp(all_paths_score, axis=-1) - real_path_score
 
     def sparse_loss(self, y_true, y_pred):
         y_true = K.reshape(y_true, K.shape(y_pred)[:-1])
