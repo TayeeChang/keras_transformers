@@ -204,90 +204,39 @@ class Tokenizer(object):
         return unicodedata.category(ch) in ('Cc', 'Cf')
 
     @staticmethod
-    def rematch(text, tokens, do_lower_case=True, unknown_token=TOKEN_UNK):
+    def _is_special(ch):
+        return bool(ch) and (ch[0] == '[') and (ch[-1] == ']')
+
+    @staticmethod
+    def rematch(text, tokens, do_lower_case=True):
         """找到token在原文中的下标。
         返回每个token的下标元组。
         """
-        decoded, token_offsets = '', []
+        if do_lower_case:
+            text = unicodedata.normalize('NFD', text)
+            text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
+            text = text.lower()
+
+        spaced = ''
+        char_indexs = []
+        for i, ch in enumerate(text):
+            if ord(ch) == 0 or ord(ch) == 0xfffd or Tokenizer._is_control(ch) or Tokenizer._is_space(ch):
+                continue
+            else:
+                spaced += ch
+                char_indexs.append(i)
+
+        offsets_mapping = []
+        offsets = 0
+        text = spaced
         for token in tokens:
-            token_offsets.append([len(decoded), 0])
-            if token == unknown_token:
-                token = '#'
-            if do_lower_case:
-                token = token.lower()
+            if Tokenizer._is_special(token):
+                offsets_mapping.append(())
+                continue
             if len(token) > 2 and token.startswith('##'):
                 token = token[2:]
-            elif len(decoded) > 0:
-                token = ' ' + token
-                token_offsets[-1][0] += 1
-            decoded += token
-            token_offsets[-1][1] = len(decoded)
-
-        heading = 0
-        text = text.rstrip()
-        for i in range(len(text)):
-            if not Tokenizer._is_space(text[i]):
-                break
-            heading += 1
-        text = text[heading:]
-        len_text, len_decode = len(text), len(decoded)
-        costs = [[0] * (len_decode + 1) for _ in range(2)]
-        paths = [[(-1, -1)] * (len_decode + 1) for _ in range(len_text + 1)]
-        curr, prev = 0, 1
-
-        for j in range(len_decode + 1):
-            costs[curr][j] = j
-        for i in range(1, len_text + 1):
-            curr, prev = prev, curr
-            costs[curr][0] = i
-            ch = text[i - 1]
-            if do_lower_case:
-                ch = ch.lower()
-            for j in range(1, len_decode + 1):
-                costs[curr][j] = costs[prev][j - 1]
-                paths[i][j] = (i - 1, j - 1)
-                if ch != decoded[j - 1]:
-                    costs[curr][j] = costs[prev][j - 1]
-                    paths[i][j] = (i - 1, j - 1)
-                    if costs[prev][j] < costs[curr][j]:
-                        costs[curr][j] = costs[prev][j]
-                        paths[i][j] = (i - 1, j)
-                    if costs[curr][j - 1] < costs[curr][j]:
-                        costs[curr][j] = costs[curr][j - 1]
-                        paths[i][j] = (i, j - 1)
-                    costs[curr][j] += 1
-
-        matches = [0] * (len_decode + 1)
-        position = (len_text, len_decode)
-        while position != (-1, -1):
-            i, j = position
-            matches[j] = i
-            position = paths[i][j]
-
-        intervals = [[matches[offset[0]], matches[offset[1]]] for offset in token_offsets]
-        for i, interval in enumerate(intervals):
-            token_a, token_b = text[interval[0]:interval[1]], tokens[i]
-            if len(token_b) > 2 and token_b.startswith('##'):
-                token_b = token_b[2:]
-            if do_lower_case:
-                token_a, token_b = token_a.lower(), token_b.lower()
-            if token_a == token_b:
-                continue
-            if i == 0:
-                border = 0
-            else:
-                border = intervals[i - 1][1]
-            for j in range(interval[0] - 1, border - 1, -1):
-                if Tokenizer._is_space(text[j]):
-                    break
-                interval[0] -= 1
-            if i + 1 == len(intervals):
-                border = len_text
-            else:
-                border = intervals[i + 1][0]
-            for j in range(interval[1], border):
-                if Tokenizer._is_space(text[j]):
-                    break
-                interval[1] += 1
-        intervals = [(interval[0] + heading, interval[1] + heading) for interval in intervals]
-        return intervals
+            start = text[offsets:].index(token) + offsets
+            end = start + len(token)
+            offsets_mapping.append(tuple(char_indexs[start:end]))
+            offsets = end
+        return offsets_mapping
