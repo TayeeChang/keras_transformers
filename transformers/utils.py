@@ -189,12 +189,12 @@ def viterbi_decode(nodes,
     trans.shape=(num_labels, num_labels)
     本质是动态规划.
     """
-    if start_id:
-        nodes[0, :start_id] = -1e8
-        nodes[0, start_id + 1:] = -1e8
-    if end_id:
-        nodes[-1, :end_id] = -1e8
-        nodes[-1, end_id + 1:] = -1e8
+    if start_id is not None:
+        nodes[0, :start_id] = -np.inf
+        nodes[0, start_id + 1:] = -np.inf
+    if end_id is not None:
+        nodes[-1, :end_id] = -np.inf
+        nodes[-1, end_id + 1:] = -np.inf
 
     seq_len, num_labels = len(nodes), len(trans)
     scores = nodes[0].reshape((-1, 1))
