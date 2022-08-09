@@ -78,6 +78,7 @@ model.compile(
     loss='sparse_categorical_crossentropy',
     optimizer=adamAcc(
         learning_rate=3e-5,
+        exclude_weights=['Norm', 'bias'],
         warmup_steps=50,
         total_steps=len(train_generator) * epochs,
         acc_grad_steps=2,
