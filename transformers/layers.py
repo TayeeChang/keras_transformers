@@ -463,6 +463,65 @@ class LayerNormalization(keras.layers.Layer):
         return config
 
 
+class GroupNormalization(keras.layers.Layer):
+    """组归一化
+    # Reference:
+        [Group Normalization]
+    """
+    def __init__(self,
+                 G=32,
+                 center=True,
+                 scale=True,
+                 episilon=None,
+                 **kwargs):
+        super(GroupNormalization, self).__init__(**kwargs)
+        self.G = G
+        self.center = center
+        self.scale = scale
+        if episilon is None:
+            episilon = K.epsilon() * K.epsilon()
+        self.episilon = episilon
+
+    def build(self, input_shape):
+        super(GroupNormalization, self).build(input_shape)
+        if self.scale:
+            self.gamma = self.add_weight(name='gamma',
+                                         shape=(input_shape[-1],),
+                                         dtype='float32',
+                                         initializer='ones')
+        if self.center:
+            self.beta = self.add_weight(name='beta',
+                                        shape=(input_shape[-1],),
+                                        dtype='float32',
+                                        initializer='zeros')
+
+    def call(self, inputs, **kwargs):
+        N, H, W, C = inputs.shape
+        x = K.reshape(inputs, (-1, H, W, C // self.G, self.G))
+        mean, var = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
+        x = (x - mean) / tf.sqrt(var + self.episilon)
+        x = K.reshape(x, (-1, H, W, C))
+        x = self.gamma * x + self.beta
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+    def compute_mask(self, inputs, mask=None):
+        return mask
+
+    def get_config(self):
+        config = {
+            "group_number": self.G,
+            "center": self.center,
+            "scale": self.scale,
+            "episilon": self.episilon,
+        }
+        base_config = super(GroupNormalization, self).get_config()
+        config.update(base_config)
+        return config
+    
+    
 class EmbeddingSimilarity(keras.layers.Layer):
     """用于输出特征与输入embedding矩阵的相似度计算
     """
