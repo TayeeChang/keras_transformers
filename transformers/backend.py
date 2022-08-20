@@ -64,22 +64,22 @@ def mask_sequences(x, mask, axis=1, value=None):
     return x
 
 
+def sinusoidal_embeddings(pos, dim, base=10000):
+    assert dim % 2 == 0
+    indices = K.arange(0, dim // 2, dtype=K.floatx())
+    indices = K.pow(K.cast(base, K.floatx()), -2 * indices / dim)
+    embeddings = tf.einsum('b m, d -> b m d', pos, indices)
+    embeddings = K.stack((K.sin(embeddings), K.cos(embeddings)), axis=-1)
+    return K.reshape(embeddings, (-1, K.int_shape(embeddings)[1], np.prod(K.int_shape(embeddings)[-2:])))
+
+
 class Sinusoidal(keras.initializers.Initializer):
-    """Sin-Cos 位置嵌入初始化器.
-    # 引用:
-        https://arxiv.org/abs/1706.03762
+    """Sinusoidal 位置编码
+    https://arxiv.org/abs/1706.03762
     """
     def __call__(self, shape, dtype=None):
-        """Sin-Cos形式的位置向量
-        """
-        seq_len, output_dim = shape
-        embeddings = np.zeros(shape)
-        for pos in range(seq_len):
-            for i in range(output_dim // 2):
-                theta = pos / np.power(10000, 2. * i / output_dim)
-                embeddings[pos, 2 * i] = np.sin(theta)
-                embeddings[pos, 2 * i + 1] = np.cos(theta)
-        return embeddings
+        size, dim = shape
+        return sinusoidal_embeddings(K.arange(size, dtype=K.floatx())[None], dim)[0]
 
 
 _INFINITY = 1e12
