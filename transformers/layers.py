@@ -1,4 +1,4 @@
-from transformers.backend import keras, K, mask_sequences
+from transformers.backend import keras, K, mask_sequences, sinusoidal_embeddings
 from keras.layers import *
 import tensorflow as tf
 
@@ -62,6 +62,8 @@ class PositionEmbedding(keras.layers.Layer):
         super(PositionEmbedding, self).__init__(**kwargs)
 
     def build(self, input_shape):
+        super(PositionEmbedding, self).build(input_shape)
+
         if self.mode == self.MODE_EXPAND:
             self.embeddings = self.add_weight(
                 shape=(self.input_dim * 2 + 1, self.output_dim),
@@ -81,7 +83,6 @@ class PositionEmbedding(keras.layers.Layer):
                 initializer=self.embedding_initializer,
                 name='pos_embeddings'
             )
-        super(PositionEmbedding, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
         if self.mode == self.MODE_REL:
@@ -144,6 +145,31 @@ class PositionEmbedding(keras.layers.Layer):
         base_config = super(PositionEmbedding, self).get_config()
         config.update(base_config)
         return config
+
+
+class SinusoidalPositionEmbedding(Layer):
+    def __init__(self, output_dim, **kwargs):
+        self.output_dim = output_dim
+        super(SinusoidalPositionEmbedding, self).__init__(**kwargs)
+
+
+    def call(self, input, mask=None):
+        input_shape = K.int_shape(input)
+        assert len(input_shape) == 2, 'input shape must be 2 dims with shape [b, n]'
+        embeddings = sinusoidal_embeddings(input, dim=self.output_dim)
+        return embeddings
+
+    def compute_output_shape(self, input_shape):
+        return input_shape + (self.output_dim, )
+
+    def get_config(self):
+        config = {
+            "output_dim": self.output_dim
+        }
+        base_config = super(SinusoidalPositionEmbedding, self).get_config()
+        config.update(base_config)
+        return config
+
 
 
 class RelativePositionBias(keras.layers.Layer):
