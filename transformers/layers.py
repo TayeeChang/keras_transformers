@@ -522,7 +522,7 @@ class GroupNormalization(keras.layers.Layer):
                                         initializer='zeros')
 
     def call(self, inputs, **kwargs):
-        N, H, W, C = inputs.shape
+        N, H, W, C = K.int_shape(inputs)
         x = K.reshape(inputs, (-1, H, W, C // self.G, self.G))
         mean, var = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
         x = (x - mean) / tf.sqrt(var + self.episilon)
