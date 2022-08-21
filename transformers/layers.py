@@ -152,7 +152,6 @@ class SinusoidalPositionEmbedding(Layer):
         self.output_dim = output_dim
         super(SinusoidalPositionEmbedding, self).__init__(**kwargs)
 
-
     def call(self, input, mask=None):
         input_shape = K.int_shape(input)
         assert len(input_shape) == 2, 'input shape must be 2 dims with shape [b, n]'
