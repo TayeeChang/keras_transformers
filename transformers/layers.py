@@ -489,19 +489,21 @@ class LayerNormalization(keras.layers.Layer):
         return config
 
 
-class GroupNormalization(keras.layers.Layer):
+class GroupNormalization(Layer):
     """组归一化
     # Reference:
         [Group Normalization]
     """
     def __init__(self,
-                 G=32,
+                 groups=32,
+                 axis=-1,
                  center=True,
                  scale=True,
                  episilon=None,
                  **kwargs):
         super(GroupNormalization, self).__init__(**kwargs)
-        self.G = G
+        self.groups = groups
+        self.axis = axis
         self.center = center
         self.scale = scale
         if episilon is None:
@@ -510,25 +512,67 @@ class GroupNormalization(keras.layers.Layer):
 
     def build(self, input_shape):
         super(GroupNormalization, self).build(input_shape)
+        dim = input_shape[self.axis]
         if self.scale:
             self.gamma = self.add_weight(name='gamma',
-                                         shape=(input_shape[-1],),
+                                         shape=(dim,),
                                          dtype='float32',
                                          initializer='ones')
         if self.center:
             self.beta = self.add_weight(name='beta',
-                                        shape=(input_shape[-1],),
+                                        shape=(dim,),
                                         dtype='float32',
                                         initializer='zeros')
 
     def call(self, inputs, **kwargs):
-        N, H, W, C = K.int_shape(inputs)
-        x = K.reshape(inputs, (-1, H, W, C // self.G, self.G))
-        mean, var = tf.nn.moments(x, [1, 2, 3], keep_dims=True)
-        x = (x - mean) / tf.sqrt(var + self.episilon)
-        x = K.reshape(x, (-1, H, W, C))
-        x = self.gamma * x + self.beta
-        return x
+        input_shape = K.int_shape(inputs)
+        assert self.axis != 0, 'sample dim can not be group normalized.'
+        if self.axis > 0:
+            self.axis -= len(input_shape)
+        tensor_input_shape = K.shape(inputs)
+        reshaped_input = self._reshaped_groups(inputs)
+        outputs = self._apply_normalization(reshaped_input, tensor_input_shape)
+        return outputs
+
+    def _apply_normalization(self, shaped_inputs, tensor_input_shape):
+        group_shape = K.int_shape(shaped_inputs)
+        group_reduced_axis = list(range(1, len(group_shape)))
+
+        axis = self.axis - 1
+        group_reduced_axis.pop(axis)
+
+        mean, var = tf.nn.moments(shaped_inputs, group_reduced_axis, keep_dims=True)
+        inputs = (shaped_inputs - mean) / tf.sqrt(var + self.episilon)
+        inputs = K.reshape(inputs, tensor_input_shape)
+
+        broadcast_shape = self._created_broadcast_shape(inputs)
+        if self.scale:
+            gamma = tf.reshape(self.gamma, broadcast_shape)
+            inputs = inputs * gamma
+        if self.center:
+            beta = tf.reshape(self.beta, broadcast_shape)
+            inputs = inputs + beta
+
+        return inputs
+
+    def _reshaped_groups(self, inputs):
+        input_shape = K.int_shape(inputs)
+        tensor_shape = K.shape(inputs)
+        group_shape = [tensor_shape[i] for i in range(len(input_shape))]
+
+        group_shape[self.axis] = input_shape[self.axis] // self.groups
+        group_shape.insert(self.axis, self.groups)
+        group_shape = tf.stack(group_shape)
+        reshaped_input = tf.reshape(inputs, group_shape)
+
+        return reshaped_input
+
+    def _created_broadcast_shape(self, inputs):
+        input_shape = K.int_shape(inputs)
+        broadcast_shape = [1] * len(input_shape)
+        broadcast_shape[self.axis] = input_shape[self.axis]
+        return broadcast_shape
+
 
     def compute_output_shape(self, input_shape):
         return input_shape
@@ -538,7 +582,7 @@ class GroupNormalization(keras.layers.Layer):
 
     def get_config(self):
         config = {
-            "group_number": self.G,
+            "group_number": self.groups,
             "center": self.center,
             "scale": self.scale,
             "episilon": self.episilon,
