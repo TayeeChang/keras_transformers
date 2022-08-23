@@ -208,12 +208,11 @@ class Tokenizer(object):
     def _is_special(ch):
         return bool(ch) and (ch[0] == '[') and (ch[-1] == ']')
 
-    @staticmethod
-    def rematch(text, tokens, do_lower_case=True):
+    def rematch(self, text, tokens):
         """找到token在原文中的下标。
         返回每个token的下标元组。
         """
-        if do_lower_case:
+        if self._do_lower_case:
             text = unicodedata.normalize('NFD', text)
             text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
             text = text.lower()
