@@ -227,6 +227,6 @@ class Tokenizer(object):
                 token = token[2:]
             start = text[offsets:].index(token) + offsets
             end = start + len(token)
-            offsets_mapping.append(tuple(list(range(start, end))))
+            offsets_mapping.append(tuple(range(start, end)))
             offsets = end
         return offsets_mapping
