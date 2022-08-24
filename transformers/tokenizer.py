@@ -209,16 +209,25 @@ class Tokenizer(object):
         return bool(ch) and (ch[0] == '[') and (ch[-1] == ']')
 
     def rematch(self, text, tokens):
-        """找到token在原文中的下标。
-           返回每个token的下标元组。
+        """建立token和text间的映射关系
         """
         if self._do_lower_case:
             text = unicodedata.normalize('NFD', text)
             text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
             text = text.lower()
 
+        cleaned_text = ''
+        char_indexs = []
+        for i, ch in enumerate(text):
+            if ord(ch) == 0 or ord(ch) == 0xfffd or Tokenizer._is_control(ch):
+                continue
+            else:
+                cleaned_text += ch
+                char_indexs.append(i)
+
         offsets_mapping = []
         offsets = 0
+        text = cleaned_text
         for token in tokens:
             if Tokenizer._is_special(token):
                 offsets_mapping.append(())
@@ -227,6 +236,6 @@ class Tokenizer(object):
                 token = token[2:]
             start = text[offsets:].index(token) + offsets
             end = start + len(token)
-            offsets_mapping.append(tuple(range(start, end)))
+            offsets_mapping.append(tuple(char_indexs[start:end]))
             offsets = end
         return offsets_mapping
