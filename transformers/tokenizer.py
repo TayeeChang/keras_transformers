@@ -1,6 +1,8 @@
 import unicodedata
 import codecs
-import numpy as np
+import json
+import regex as re
+from functools import lru_cache
 
 
 def load_vocab(vocab_path):
@@ -12,6 +14,31 @@ def load_vocab(vocab_path):
             token = line.strip()
             token_dict[token] = len(token_dict)
     return token_dict
+
+
+@lru_cache()
+def bytes_to_unicode():
+    bs = list(range(ord("!"), ord("~")+1))+list(range(ord("¡"), ord("¬")+1))+list(range(ord("®"), ord("ÿ")+1))
+    cs = bs[:]
+    n = 0
+    for b in range(2**8):
+        if b not in bs:
+            bs.append(b)
+            cs.append(2**8+n)
+            n += 1
+    cs = [chr(n) for n in cs]
+    return dict(zip(bs, cs))
+
+
+def get_pairs(word):
+    """Return set of symbol pairs in a word for BPE.
+    """
+    pairs = set()
+    prev_char = word[0]
+    for char in word[1:]:
+        pairs.add((prev_char, char))
+        prev_char = char
+    return pairs
 
 
 class Tokenizer(object):
@@ -133,9 +160,9 @@ class Tokenizer(object):
     def _tokenize(self, text):
         """核心分词函数
         """
+        text = unicodedata.normalize('NFD', text)
+        text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
         if self._do_lower_case:
-            text = unicodedata.normalize('NFD', text)
-            text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
             text = text.lower()
         spaced = ''
         for ch in text:
@@ -204,16 +231,18 @@ class Tokenizer(object):
     def _is_control(ch):
         return unicodedata.category(ch) in ('Cc', 'Cf')
 
-    @staticmethod
-    def _is_special(ch):
+    def _is_special(self, ch):
         return bool(ch) and (ch[0] == '[') and (ch[-1] == ']')
+
+    def _stem(self, ch):
+        return ch[2:] if len(ch) > 2 and ch.startswith('##') else ch
 
     def rematch(self, text, tokens):
         """建立token和text间的映射关系
         """
+        text = unicodedata.normalize('NFD', text)
+        text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
         if self._do_lower_case:
-            text = unicodedata.normalize('NFD', text)
-            text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
             text = text.lower()
 
         cleaned_text = ''
@@ -229,13 +258,192 @@ class Tokenizer(object):
         offsets = 0
         text = cleaned_text
         for token in tokens:
-            if Tokenizer._is_special(token):
+            if self._is_special(token):
                 offsets_mapping.append(())
                 continue
-            if len(token) > 2 and token.startswith('##'):
-                token = token[2:]
+            token = self._stem(token)
             start = text[offsets:].index(token) + offsets
             end = start + len(token)
-            offsets_mapping.append(tuple(char_indexs[start:end]))
+            offsets_mapping.append((char_indexs[start], char_indexs[end-1]))
             offsets = end
+        return offsets_mapping
+
+
+class BytePairEncoding(object):
+    def __init__(self, encoder, bpe_merges, errors='replace'):
+        self.encoder = encoder
+        self.decoder = {v:k for k,v in self.encoder.items()}
+        self.errors = errors # how to handle errors in decoding
+        self.byte_encoder = bytes_to_unicode()
+        self.byte_decoder = {v:k for k, v in self.byte_encoder.items()}
+        self.bpe_ranks = dict(zip(bpe_merges, range(len(bpe_merges))))
+        self.cache = {}
+
+        # Should haved added re.IGNORECASE so BPE merges can happen for capitalized versions of contractions
+        self.pat = re.compile(r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+
+    def bpe(self, token):
+        if token in self.cache:
+            return self.cache[token]
+        word = tuple(token)
+        pairs = get_pairs(word)
+
+        if not pairs:
+            return token
+
+        while True:
+            bigram = min(pairs, key = lambda pair: self.bpe_ranks.get(pair, float('inf')))
+            if bigram not in self.bpe_ranks:
+                break
+            first, second = bigram
+            new_word = []
+            i = 0
+            while i < len(word):
+                try:
+                    j = word.index(first, i)
+                    new_word.extend(word[i:j])
+                    i = j
+                except:
+                    new_word.extend(word[i:])
+                    break
+
+                if word[i] == first and i < len(word)-1 and word[i+1] == second:
+                    new_word.append(first+second)
+                    i += 2
+                else:
+                    new_word.append(word[i])
+                    i += 1
+            new_word = tuple(new_word)
+            word = new_word
+            if len(word) == 1:
+                break
+            else:
+                pairs = get_pairs(word)
+        word = ' '.join(word)
+        self.cache[token] = word
+        return word
+
+
+class RobertaTokenizer(Tokenizer, BytePairEncoding):
+    TOKEN_BOS = "<s>"
+    TOKEN_EOS = "</s>"
+    TOKEN_UNK = "<unk>"
+    TOKEN_PAD = '<pad>'
+
+    def __init__(self,
+                 roberta_vocab_file,
+                 gpt_vocab_file,
+                 gpt_merge_file,
+                 token_bos=TOKEN_BOS,
+                 token_eos=TOKEN_EOS,
+                 token_unk=TOKEN_UNK,
+                 token_pad=TOKEN_PAD,
+                 do_lower_case=False):
+
+        self._token_dict = {"<s>": 0, "<pad>": 1, "</s>": 2, "<unk>": 3}
+        self._token_bos = self._token_cls = token_bos
+        self._token_eos = self._token_sep = token_eos
+        self._token_unk = token_unk
+        self._token_pad = token_pad
+        self._token_bos_id = self._token_cls_id = self._token_dict[self._token_bos]
+        self._token_eos_id = self._token_sep_id = self._token_dict[self._token_eos]
+        self._token_unk_id = self._token_dict[self._token_unk]
+        self._token_pad_id = self._token_dict[self._token_pad]
+        self._do_lower_case = do_lower_case
+
+        with open(gpt_vocab_file, 'r') as f:
+            gpt_vocab = json.load(f)
+        with open(gpt_merge_file, 'r', encoding="utf-8") as f:
+            gpt_bpe_data = f.read()
+        bpe_merges = [tuple(merge_str.split()) for merge_str in gpt_bpe_data.split('\n')[1:-1]]
+        self.oldid2newid = {}
+        with open(roberta_vocab_file, 'r') as f:
+            for i, line in enumerate(f):
+                new_id = i + 4
+                old_id, count = line.strip().split()
+                if old_id.isnumeric():
+                    self.oldid2newid[int(old_id)] = new_id
+
+        for word in gpt_vocab:
+            self._token_dict[word] = self.oldid2newid[gpt_vocab[word]]
+        self._token_dict_inv = {v: k for k, v in self._token_dict.items()}
+
+        BytePairEncoding.__init__(self, gpt_vocab, bpe_merges)
+
+    def _tokenize(self, text):
+        """使用BPE分词
+        """
+        if self._do_lower_case:
+            text = text.lower()
+        bpe_tokens = []
+        for token in re.findall(self.pat, text):
+            token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
+            bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(' '))
+        return bpe_tokens
+
+    def _is_special(self, ch):
+        return bool(ch) and (ch[0] == '<') and (ch[-1] == '>')
+
+    def _stem(self, ch):
+        i = 0
+        for i in range(len(ch)):
+            if ch[i] != ' ':
+                break
+        return ch[i:]
+
+    def decode(self, token_ids):
+        if token_ids[0] == self._token_cls_id:
+            token_ids = token_ids[1:]
+        sentences = []
+        sent = []
+        for tid in token_ids:
+            if tid != self._token_eos_id:
+                sent.append(tid)
+            else:
+                sentences.append(sent)
+                sent = []
+        text = []
+        for sentence in sentences:
+            sentence = ''.join(self.convert_ids_to_tokens(sentence))
+            sentence = bytearray([self.byte_decoder[c] for c in sentence]).decode('utf-8', errors=self.errors)
+            text.append(sentence)
+        return text
+
+    def rematch(self, text, tokens):
+        """建立token和text间的映射关系
+        """
+        if self._do_lower_case:
+            text = text.lower()
+
+        cleaned_text = ''
+        char_indexs = []
+        for i, ch in enumerate(text):
+            if ord(ch) == 0 or ord(ch) == 0xfffd or Tokenizer._is_control(ch):
+                continue
+            else:
+                cleaned_text += ch
+                char_indexs.append(i)
+
+        offsets_mapping = []
+        offsets = 0
+        text = cleaned_text
+
+        tokens = [
+            bytearray([self.byte_decoder[c] for c in token]).decode('utf-8', errors=self.errors)
+            for token in tokens
+        ]
+        for token in tokens:
+            if self._is_special(token):
+                offsets_mapping.append(())
+                continue
+            token = self._stem(token)
+            if token not in text[offsets:]: # 考虑特殊类Mn字符如"\u0300"
+                start = offsets
+                end = start + 1
+            else:
+                start = text[offsets:].index(token) + offsets
+                end = start + len(token)
+                offsets = end
+            offsets_mapping.append((char_indexs[start], char_indexs[end-1]))
+
         return offsets_mapping
