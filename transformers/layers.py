@@ -416,7 +416,7 @@ class FeedForward(keras.layers.Layer):
     def get_config(self):
         config = {
             "units": self.units,
-            "activation": keras.activations.serialize(self.activation),
+            "activation": [keras.activations.serialize(activation) for activation in self.activation],
             "kernel_initializer": keras.initializers.serialize(self.kernel_initializer),
             "regularizer": keras.regularizers.serialize(self.regularizer),
             "constraint": keras.constraints.serialize(self.constraint),
