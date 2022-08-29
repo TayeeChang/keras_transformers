@@ -51,11 +51,14 @@ class DataGenerator(object):
     """
     def __init__(self,
                  data,
-                 batch_size=32):
+                 batch_size=32,
+                 drop_last=False):
         self.data = data
         self.batch_size = batch_size
         self.indexs = np.arange(len(self.data))
-        self.steps = int(np.ceil(len(self.data) / self.batch_size))
+        self.steps = len(self.data) // self.batch_size
+        if not drop_last and self.steps * self.batch_size < len(self.data):
+            self.steps += 1
 
     def __len__(self):
         return self.steps
