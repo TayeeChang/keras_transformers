@@ -2,8 +2,11 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
+from distutils.util import strtobool
 
-if 'TF_KERAS' in os.environ and os.environ['TF_KERAS'] != '0':
+TF_KERAS = strtobool(os.environ.get('TF_KERAS', '0'))
+
+if TF_KERAS:
     import tensorflow
     sys.modules['keras'] = tensorflow.keras
 
