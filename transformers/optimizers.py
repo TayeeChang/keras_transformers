@@ -1,4 +1,4 @@
-from transformers.backend import K, keras, TF_KERAS
+from .backend import K, keras, TF_KERAS
 from keras.optimizers import Optimizer
 import tensorflow as tf
 import re
@@ -423,6 +423,8 @@ def wrap_optimizer_with_accumulate_grads_v2(optimizer):
             old_update = K.update
             K.update = new_update
             g_t = g_a / self.acc_grad_steps
+            if indices is not None:
+                g_t = tf.gather(g_t, indices)
             update = super(AccumulateGradsOptimizer, self)._resource_apply(g_t, var, indices)
             K.update = old_update
 
@@ -430,8 +432,9 @@ def wrap_optimizer_with_accumulate_grads_v2(optimizer):
                 if indices is None:
                     return K.update(g_a, grad + (1. - cond) * g_a)
                 else:
-                    g_a = (1. - cond) * g_a
-                    return self._resource_scatter_add(g_a, indices, grad)
+                    sub_op = K.update(g_a, (1. - cond) * g_a)
+                    with tf.control_dependencies([sub_op]):
+                        return self._resource_scatter_add(g_a, indices, grad)
 
         def get_config(self):
             config = {
