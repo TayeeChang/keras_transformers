@@ -706,7 +706,7 @@ class Loss(keras.layers.Layer):
         return config
 
 
-class ConditionalRandomField(Layer):
+class ConditionalRandomField(keras.layers.Layer):
     """自定义条件随机场层
     # Reference:
         https://github.com/bojone/bert4keras/blob/master/bert4keras/layers.py # 1060
@@ -717,7 +717,7 @@ class ConditionalRandomField(Layer):
 
     def build(self, input_shape):
         self._trans = self.add_weight(
-            shape=(input_shape[-1], input_shape[-1]),
+            shape=(int(input_shape[-1]), int(input_shape[-1])),
             name='CRF-Trans',
             initializer='glorot_uniform',
             trainable=True
@@ -737,7 +737,7 @@ class ConditionalRandomField(Layer):
         """相当于identity变换.
         """
         self._mask = K.cast(mask, K.floatx())
-        return inputs
+        return inputs[:]
 
     def cal_real_path_score(self, y_true, y_pred):
         emission_scores = tf.einsum('bnc, bnc ->b', y_true, y_pred)
@@ -752,22 +752,23 @@ class ConditionalRandomField(Layer):
         return step_scores, [step_scores]
 
     def dense_loss(self, y_true, y_pred):
-        self._mask = K.expand_dims(self._mask, -1)
-        y_true, y_pred = y_true * self._mask, y_pred * self._mask
+        mask = K.expand_dims(self._mask, -1)
+        mask = K.cast(mask, K.floatx())
+        y_true, y_pred = y_true * mask, y_pred * mask
         real_path_score = self.cal_real_path_score(y_true, y_pred)
         all_paths_score, _, _ = K.rnn(
             self.cal_step_path_score,
             inputs=y_pred[:, 1:],
             initial_states=[y_pred[:, 0]],
-            mask=self._mask[:, 1:],
+            mask=mask[:, 1:],
             input_length=K.int_shape(y_pred[:, 1:])[1],
         )
-        return K.logsumexp(all_paths_score, axis=-1) - real_path_score
-
+        return K.logsumexp(all_paths_score, axis=1) - real_path_score
+    
     def sparse_loss(self, y_true, y_pred):
         y_true = K.reshape(y_true, K.shape(y_pred)[:-1])
         y_true = K.cast(y_true, 'int32')
-        y_true = K.one_hot(y_true, K.int_shape(y_pred)[-1])
+        y_true = K.one_hot(y_true, K.shape(self.trans)[0])
         assert K.int_shape(y_true) == K.int_shape(y_pred), 'the dimension of y_true, y_pred do not match.'
         loss = self.dense_loss(y_true, y_pred)
         return loss
@@ -779,11 +780,12 @@ class ConditionalRandomField(Layer):
     def sparse_accuracy(self, y_true, y_pred):
         """注意keras默认y_true和y_pred形状一致, 因此使用sparse y_true时，需要reshape.
         """
+        mask = K.cast(self._mask, K.floatx())
         y_true = K.reshape(y_true, K.shape(y_pred)[:-1])
         y_true = K.cast(y_true, 'int32')
         y_pred = K.argmax(y_pred, axis=-1)
         y_pred = K.cast(y_pred, 'int32')
-        accuracy = K.sum(K.cast(K.equal(y_true, y_pred), K.floatx()) * self._mask) / K.sum(self._mask)
+        accuracy = K.sum(K.cast(K.equal(y_true, y_pred), K.floatx()) * mask) / K.sum(mask)
         return accuracy
 
     def compute_mask(self, inputs, mask=None):
