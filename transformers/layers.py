@@ -788,9 +788,6 @@ class ConditionalRandomField(keras.layers.Layer):
         accuracy = K.sum(K.cast(K.equal(y_true, y_pred), K.floatx()) * mask) / K.sum(mask)
         return accuracy
 
-    def compute_mask(self, inputs, mask=None):
-        return None
-
     def get_config(self):
         config = {
             "lr_multiplier": self.lr_multiplier
