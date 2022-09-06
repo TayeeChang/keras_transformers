@@ -753,14 +753,13 @@ class ConditionalRandomField(keras.layers.Layer):
 
     def dense_loss(self, y_true, y_pred):
         mask = K.expand_dims(self._mask, -1)
-        mask = K.cast(mask, K.floatx())
         y_true, y_pred = y_true * mask, y_pred * mask
         real_path_score = self.cal_real_path_score(y_true, y_pred)
         all_paths_score, _, _ = K.rnn(
             self.cal_step_path_score,
             inputs=y_pred[:, 1:],
             initial_states=[y_pred[:, 0]],
-            mask=mask[:, 1:],
+            mask=self._mask[:, 1:],
             input_length=K.int_shape(y_pred[:, 1:])[1],
         )
         return K.logsumexp(all_paths_score, axis=1) - real_path_score
@@ -780,13 +779,15 @@ class ConditionalRandomField(keras.layers.Layer):
     def sparse_accuracy(self, y_true, y_pred):
         """注意keras默认y_true和y_pred形状一致, 因此使用sparse y_true时，需要reshape.
         """
-        mask = K.cast(self._mask, K.floatx())
         y_true = K.reshape(y_true, K.shape(y_pred)[:-1])
         y_true = K.cast(y_true, 'int32')
         y_pred = K.argmax(y_pred, axis=-1)
         y_pred = K.cast(y_pred, 'int32')
-        accuracy = K.sum(K.cast(K.equal(y_true, y_pred), K.floatx()) * mask) / K.sum(mask)
+        accuracy = K.sum(K.cast(K.equal(y_true, y_pred), K.floatx()) * self._mask) / K.sum(self._mask)
         return accuracy
+    
+    def compute_mask(self, inputs, mask=None):
+        return None
 
     def get_config(self):
         config = {
