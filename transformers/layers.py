@@ -540,7 +540,7 @@ class GroupNormalization(Layer):
         axis = self.axis - 1
         group_reduced_axis.pop(axis)
 
-        mean, var = tf.nn.moments(shaped_inputs, group_reduced_axis, keep_dims=True)
+        mean, var = tf.nn.moments(shaped_inputs, group_reduced_axis, keepdims=True)
         inputs = (shaped_inputs - mean) / tf.sqrt(var + self.episilon)
         inputs = K.reshape(inputs, tensor_input_shape)
 
