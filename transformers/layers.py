@@ -660,15 +660,20 @@ class Scale(keras.layers.Layer):
 
 
 class Loss(keras.layers.Layer):
-    """自定义损失层, 可以用来定义复杂的损失，比如Dice Loss
+    """自定义损失层, 可以用来定义复杂的损失，比如Dice Loss，
+       同时支持添加自定义metrics。
     """
     def __init__(self, output_dims=None, **kwargs):
-        super(Loss, self).__init__(**kwargs)
         self.output_dims = output_dims
+        self.metrics_name = kwargs.pop('metrics', 'accuracy')
+        super(Loss, self).__init__(**kwargs)
 
     def call(self, inputs, mask=None):
         loss = self.compute_loss(inputs, mask)
         self.add_loss(loss)
+        if hasattr(self, 'compute_metrics'):
+            metrics = self.compute_metrics(inputs, mask)
+            self.add_metric(metrics, name=self.metrics_name)
         if self.output_dims is None:
             return inputs
         elif isinstance(self.output_dims, (list, tuple)):
