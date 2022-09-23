@@ -229,7 +229,7 @@ def wrap_optimizer_with_warmup(optimizer):
             lr = self.learning_rate
             t = K.cast(self.iterations, K.floatx())
             self.learning_rate = K.switch(
-                t <= self.warmup_steps,
+                t < self.warmup_steps,
                 lr * t / self.warmup_steps,
                 self.min_lr + (lr - self.min_lr) *
                     (1.0 - (t - self.warmup_steps) / (self.total_steps - self.warmup_steps))
@@ -263,7 +263,7 @@ def wrap_optimizer_with_warmup_v2(optimizer):
             lr = super(WarmupOptimizer, self)._decayed_lr(var_dtype)
             t = K.cast(self.iterations, K.floatx())
             lr_t = K.switch(
-                t <= self.warmup_steps,
+                t < self.warmup_steps,
                 lr * t / self.warmup_steps,
                 self.min_lr + (lr - self.min_lr) *
                 (1.0 - (t - self.warmup_steps) / (self.total_steps - self.warmup_steps))
