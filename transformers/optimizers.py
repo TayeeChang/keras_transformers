@@ -258,15 +258,19 @@ def wrap_optimizer_with_warmup_v2(optimizer):
             self.total_steps = kwargs.pop('total_steps')
             self.min_lr = kwargs.pop('min_lr', 0.0)
             super(WarmupOptimizer, self).__init__(*args, **kwargs)
+            self.start_steps = -1
 
         def _decayed_lr(self, var_dtype):
             lr = super(WarmupOptimizer, self)._decayed_lr(var_dtype)
             t = K.cast(self.iterations, K.floatx())
+            self.start_steps = K.switch(K.equal(self.start_steps, -1), t, self.start_steps)
+            warmup_steps = self.warmup_steps + self.start_steps
+            total_steps = self.total_steps + self.start_steps
             lr_t = K.switch(
-                t < self.warmup_steps,
-                lr * t / self.warmup_steps,
+                t < warmup_steps,
+                lr * (t - self.start_steps) / self.warmup_steps,
                 self.min_lr + (lr - self.min_lr) *
-                (1.0 - (t - self.warmup_steps) / (self.total_steps - self.warmup_steps))
+                (1.0 - (t - warmup_steps) / (total_steps - warmup_steps))
             )
             return lr_t
 
