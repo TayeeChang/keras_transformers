@@ -262,13 +262,21 @@ def wrap_optimizer_with_warmup_v2(optimizer):
 
         def _decayed_lr(self, var_dtype=None):
             lr = super(WarmupOptimizer, self)._decayed_lr(var_dtype)
-            t = K.cast(self.iterations, K.floatx())
-            self.start_steps = K.switch(K.equal(self.start_steps, -1), t, self.start_steps)
-            warmup_steps = self.warmup_steps + self.start_steps
-            total_steps = self.total_steps + self.start_steps
+            if var_dtype is None:
+                var_dtype = lr.dtype
+            t = K.cast(self.iterations, var_dtype)
+
+            # support init training steps
+            if not hasattr(self, 'start_steps'):
+                setattr(self, 'start_steps', K.eval(self.iterations))
+            start_steps = getattr(self, 'start_steps')
+            start_steps = K.cast(start_steps, var_dtype)
+
+            warmup_steps = self.warmup_steps + start_steps
+            total_steps = self.total_steps + start_steps
             lr_t = K.switch(
                 t < warmup_steps,
-                lr * (t - self.start_steps) / self.warmup_steps,
+                lr * (t - start_steps) / self.warmup_steps,
                 self.min_lr + (lr - self.min_lr) *
                 (1.0 - (t - warmup_steps) / (total_steps - warmup_steps))
             )
