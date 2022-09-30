@@ -260,7 +260,7 @@ def wrap_optimizer_with_warmup_v2(optimizer):
             super(WarmupOptimizer, self).__init__(*args, **kwargs)
             self.start_steps = -1
 
-        def _decayed_lr(self, var_dtype):
+        def _decayed_lr(self, var_dtype=None):
             lr = super(WarmupOptimizer, self)._decayed_lr(var_dtype)
             t = K.cast(self.iterations, K.floatx())
             self.start_steps = K.switch(K.equal(self.start_steps, -1), t, self.start_steps)
