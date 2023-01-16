@@ -25,8 +25,8 @@ def find_version(*file_paths):
 
 
 setup(
-    name='transformers',
-    version=find_version('transformers', '__init__.py'),
+    name='keras-transformers',
+    version=find_version('keras_transformers', '__init__.py'),
     packages=find_packages(),
     url='https://github.com/TayeeChang/transformers',
     license='Apache License 2.0',
