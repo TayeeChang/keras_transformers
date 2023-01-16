@@ -8,6 +8,7 @@ TF_KERAS = strtobool(os.environ.get('TF_KERAS', '0'))
 
 if TF_KERAS:
     import tensorflow
+    print(tensorflow.keras)
     sys.modules['keras'] = tensorflow.keras
 
 import keras
