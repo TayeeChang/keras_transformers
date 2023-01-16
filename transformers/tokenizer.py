@@ -160,10 +160,11 @@ class Tokenizer(object):
     def _tokenize(self, text):
         """核心分词函数
         """
-        text = unicodedata.normalize('NFD', text)
-        text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
         if self._do_lower_case:
             text = text.lower()
+            text = unicodedata.normalize('NFD', text)
+            text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
+
         spaced = ''
         for ch in text:
             if self._is_punctuation(ch) or self._is_cjk_character(ch):
@@ -196,7 +197,7 @@ class Tokenizer(object):
                     break
                 end -= 1
             if start == end:
-                end += 1
+                return [word]
             tokens.append(sub)
             start = end
         return tokens
@@ -240,19 +241,16 @@ class Tokenizer(object):
     def rematch(self, text, tokens):
         """建立token和text间的映射关系
         """
-        text = unicodedata.normalize('NFD', text)
-        text = ''.join([ch for ch in text if unicodedata.category(ch) != 'Mn'])
-        if self._do_lower_case:
-            text = text.lower()
-
         cleaned_text = ''
         char_indexs = []
         for i, ch in enumerate(text):
-            if ord(ch) == 0 or ord(ch) == 0xfffd or Tokenizer._is_control(ch):
-                continue
-            else:
-                cleaned_text += ch
-                char_indexs.append(i)
+            if self._do_lower_case:
+                text = text.lower()
+                ch = unicodedata.normalize('NFD', ch)
+                ch = ''.join([s for s in ch if unicodedata.category(s) != 'Mn'])
+            ch = ''.join([s for s in ch if not (ord(s) == 0 or ord(s) == 0xfffd or Tokenizer._is_control(s))])
+            cleaned_text += ch
+            char_indexs.extend([i] * len(ch))
 
         offsets_mapping = []
         offsets = 0
@@ -412,17 +410,16 @@ class RobertaTokenizer(Tokenizer, BytePairEncoding):
     def rematch(self, text, tokens):
         """建立token和text间的映射关系
         """
-        if self._do_lower_case:
-            text = text.lower()
-
         cleaned_text = ''
         char_indexs = []
         for i, ch in enumerate(text):
-            if ord(ch) == 0 or ord(ch) == 0xfffd or Tokenizer._is_control(ch):
-                continue
-            else:
-                cleaned_text += ch
-                char_indexs.append(i)
+            if self._do_lower_case:
+                text = text.lower()
+                ch = unicodedata.normalize('NFD', ch)
+                ch = ''.join([s for s in ch if unicodedata.category(s) != 'Mn'])
+            ch = ''.join([s for s in ch if not (ord(s) == 0 or ord(s) == 0xfffd or Tokenizer._is_control(s))])
+            cleaned_text += ch
+            char_indexs.append(i)
 
         offsets_mapping = []
         offsets = 0
@@ -437,7 +434,7 @@ class RobertaTokenizer(Tokenizer, BytePairEncoding):
                 offsets_mapping.append(())
                 continue
             token = self._stem(token)
-            if token not in text[offsets:]: # 考虑特殊类Mn字符如"\u0300"
+            if token not in text[offsets:]:  # 考虑特殊类Mn字符如"\u0300"
                 start = offsets
                 end = start + 1
             else:
