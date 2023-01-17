@@ -253,17 +253,16 @@ class Tokenizer(object):
             char_indexs.extend([i] * len(ch))
 
         offsets_mapping = []
-        offsets = 0
+        end = 0
         text = cleaned_text
         for token in tokens:
             if self._is_special(token):
                 offsets_mapping.append(())
                 continue
             token = self._stem(token)
-            start = text[offsets:].index(token) + offsets
+            start = text.index(token, end)
             end = start + len(token)
             offsets_mapping.append((char_indexs[start], char_indexs[end-1]))
-            offsets = end
         return offsets_mapping
 
 
@@ -290,7 +289,7 @@ class BytePairEncoding(object):
             return token
 
         while True:
-            bigram = min(pairs, key = lambda pair: self.bpe_ranks.get(pair, float('inf')))
+            bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair, float('inf')))
             if bigram not in self.bpe_ranks:
                 break
             first, second = bigram
@@ -329,14 +328,12 @@ class RobertaTokenizer(Tokenizer, BytePairEncoding):
     TOKEN_PAD = '<pad>'
 
     def __init__(self,
-                 roberta_vocab_file,
-                 gpt_vocab_file,
-                 gpt_merge_file,
+                 vocab_file,
+                 merge_file,
                  token_bos=TOKEN_BOS,
                  token_eos=TOKEN_EOS,
                  token_unk=TOKEN_UNK,
-                 token_pad=TOKEN_PAD,
-                 do_lower_case=False):
+                 token_pad=TOKEN_PAD):
 
         self._token_dict = {"<s>": 0, "<pad>": 1, "</s>": 2, "<unk>": 3}
         self._token_bos = self._token_cls = token_bos
@@ -347,32 +344,20 @@ class RobertaTokenizer(Tokenizer, BytePairEncoding):
         self._token_eos_id = self._token_sep_id = self._token_dict[self._token_eos]
         self._token_unk_id = self._token_dict[self._token_unk]
         self._token_pad_id = self._token_dict[self._token_pad]
-        self._do_lower_case = do_lower_case
 
-        with open(gpt_vocab_file, 'r') as f:
-            gpt_vocab = json.load(f)
-        with open(gpt_merge_file, 'r', encoding="utf-8") as f:
-            gpt_bpe_data = f.read()
-        bpe_merges = [tuple(merge_str.split()) for merge_str in gpt_bpe_data.split('\n')[1:-1]]
-        self.oldid2newid = {}
-        with open(roberta_vocab_file, 'r') as f:
-            for i, line in enumerate(f):
-                new_id = i + 4
-                old_id, count = line.strip().split()
-                if old_id.isnumeric():
-                    self.oldid2newid[int(old_id)] = new_id
-
-        for word in gpt_vocab:
-            self._token_dict[word] = self.oldid2newid[gpt_vocab[word]]
+        with open(vocab_file, 'r', encoding="utf-8") as f:
+            roberta_vocab = json.load(f)
+        with open(merge_file, 'r', encoding="utf-8") as f:
+            bpe_data = f.read()
+        bpe_merges = [tuple(merge_str.split()) for merge_str in bpe_data.split('\n')[1:-1]]
+        self._token_dict = roberta_vocab
         self._token_dict_inv = {v: k for k, v in self._token_dict.items()}
 
-        BytePairEncoding.__init__(self, gpt_vocab, bpe_merges)
+        BytePairEncoding.__init__(self, roberta_vocab, bpe_merges)
 
     def _tokenize(self, text):
         """使用BPE分词
         """
-        if self._do_lower_case:
-            text = text.lower()
         bpe_tokens = []
         for token in re.findall(self.pat, text):
             token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
@@ -413,10 +398,6 @@ class RobertaTokenizer(Tokenizer, BytePairEncoding):
         cleaned_text = ''
         char_indexs = []
         for i, ch in enumerate(text):
-            if self._do_lower_case:
-                ch = ch.lower()
-                ch = unicodedata.normalize('NFD', ch)
-                ch = ''.join([s for s in ch if unicodedata.category(s) != 'Mn'])
             ch = ''.join([s for s in ch if not (ord(s) == 0 or ord(s) == 0xfffd or Tokenizer._is_control(s))])
             cleaned_text += ch
             char_indexs.append(i)
@@ -438,7 +419,7 @@ class RobertaTokenizer(Tokenizer, BytePairEncoding):
                 start = offsets
                 end = start + 1
             else:
-                start = text[offsets:].index(token) + offsets
+                start = text.index(token, offsets)
                 end = start + len(token)
                 offsets = end
             offsets_mapping.append((char_indexs[start], char_indexs[end-1]))
