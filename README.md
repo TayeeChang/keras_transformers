@@ -35,7 +35,7 @@
    
 ## 安装
 ```shell   
-pip install git+https://github.com/TayeeChang/transformers.git
+pip install git+https://github.com/TayeeChang/keras_transformers.git
 ```
 或者
 ```shell
@@ -44,7 +44,7 @@ python setup.py install
 
 ## 使用
  
- 具体参考 [example](https://github.com/TayeeChang/transformers/tree/master/example)
+ 具体参考 [example](https://github.com/TayeeChang/keras_transformers/tree/master/example)
  
 ## 引用
 1. <a href="https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ">BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</a>
