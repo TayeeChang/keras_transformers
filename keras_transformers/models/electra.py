@@ -1,5 +1,4 @@
-from transformers.layers import *
-import numpy as np
+from keras_transformers.layers import *
 import json
 
 
@@ -192,8 +191,7 @@ def get_model(vocab_size,
               attention_dropout_rate,
               hidden_dropout_rate,
               bert_initializer,
-              with_nsp=False,
-              with_mlm=False,
+              with_discriminator=False,
               **kwargs):
     input_token_ids, input_segment_ids = get_inputs(seq_len)
     embeddings, token_embeddings = get_embeddings(
@@ -219,53 +217,35 @@ def get_model(vocab_size,
         **kwargs,
     )
 
-    nsp_pred, mlm_pred = None, None
-    if with_nsp:
-        cls_output = Lambda(
-            name='Extract-CLS',
-            function=lambda x: x[:, 0]
-        )(output)
-        nsp_dense = keras.layers.Dense(
-            units=hidden_dim,
-            activation='tanh',
-            name='NSP-Dense',
-        )(cls_output)
-        nsp_pred = keras.layers.Dense(
-            units=2,
-            activation='softmax',
-            name='NSP-Prob'
-        )(nsp_dense)
-
-    if with_mlm:
-        mlm_dense = keras.layers.Dense(
+    if with_discriminator:
+        disc_dense = keras.layers.Dense(
             units=hidden_dim,
             activation=feed_forward_activation,
-            name='MLM-Dense',
-        )(output)
-        mlm_norm = LayerNormalization(name='MLM-Norm')(mlm_dense)
-        mlm_pred = EmbeddingSimilarity(name='MLM-Prob')([mlm_norm, token_embeddings])
+            kernel_initializer=bert_initializer,
+            name='Discriminator-Dense')\
+        (output)
+        disc_output = keras.layers.Dense(
+            units=1,
+            activation='sigmoid',
+            kernel_initializer=bert_initializer,
+            name='Discriminator-Prediction')\
+        (disc_dense)
 
-    if with_nsp and with_mlm:
-        output = [nsp_pred, mlm_pred]
-    elif with_nsp:
-        output = nsp_pred
-    elif with_mlm:
-        output = mlm_pred
-
+    if with_discriminator:
+        output = disc_output
     return [input_token_ids, input_segment_ids], output
 
 
-def build_bert_model(config_file,
-                     checkpoint_file,
-                     trainable=True,
-                     seq_len=int(1e9),
-                     with_nsp=False,
-                     with_mlm=False,
-                     **kwargs):
+def build_electra_model(config_file,
+                        checkpoint_file,
+                        trainable=True,
+                        seq_len=int(1e9),
+                        with_discriminator=False,
+                        **kwargs):
     """Build the model from config file.
     # Reference:
-        [BERT: Pre-training of Deep Bidirectional Transformers forLanguage Understanding]
-        (https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)
+        [ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators]
+        (https://openreview.net/pdf?id=r1xMH1BtvB)
 
     """
     with open(config_file, 'r') as reader:
@@ -289,8 +269,7 @@ def build_bert_model(config_file,
         attention_dropout_rate=config['attention_probs_dropout_prob'],
         hidden_dropout_rate=config['hidden_dropout_prob'],
         bert_initializer=config['bert_initializer'],
-        with_nsp=with_nsp,
-        with_mlm=with_mlm,
+        with_discriminator=with_discriminator,
         trainable=trainable,
         **kwargs,
     )
@@ -299,8 +278,7 @@ def build_bert_model(config_file,
         model,
         config,
         checkpoint_file,
-        with_mlm=with_mlm,
-        with_nsp=with_nsp,
+        with_discriminator=with_discriminator
     )
     return model
 
@@ -314,8 +292,7 @@ def checkpoint_loader(checkpoint_file):
 def load_model_weights_from_checkpoint(model,
                                        config,
                                        checkpoint_file,
-                                       with_nsp=False,
-                                       with_mlm=False):
+                                       with_discriminator=False):
     """Load trained official model from checkpoint.
     """
     loader = checkpoint_loader(checkpoint_file)
@@ -332,6 +309,10 @@ def load_model_weights_from_checkpoint(model,
     model.get_layer(name='Embedding-Norm').set_weights([
         loader('bert/embeddings/LayerNorm/gamma'),
         loader('bert/embeddings/LayerNorm/beta'),
+    ])
+    model.get_layer(name='Embedding-Map').set_weights([
+        loader('electra/embeddings_project/kernel'),
+        loader('electra/embeddings_project/bias'),
     ])
     for i in range(config['num_hidden_layers']):
         try:
@@ -363,24 +344,12 @@ def load_model_weights_from_checkpoint(model,
             loader('bert/encoder/layer_%d/output/LayerNorm/beta' % i),
         ])
 
-    if with_mlm:
-        model.get_layer(name='MLM-Dense').set_weights([
-            loader('cls/predictions/transform/dense/kernel'),
-            loader('cls/predictions/transform/dense/bias'),
+    if with_discriminator:
+        model.get_layer(name='Discriminator-Dense').set_weights([
+            loader('discriminator_predictions/dense/kernel'),
+            loader('discriminator_predictions/dense/bias'),
         ])
-        model.get_layer(name='MLM-Norm').set_weights([
-            loader('cls/predictions/transform/LayerNorm/gamma'),
-            loader('cls/predictions/transform/LayerNorm/beta'),
-        ])
-        model.get_layer(name='MLM-Prob').set_weights([
-            loader('cls/predictions/output_bias'),
-        ])
-    if with_nsp:
-        model.get_layer(name='NSP-Dense').set_weights([
-            loader('bert/pooler/dense/kernel'),
-            loader('bert/pooler/dense/bias'),
-        ])
-        model.get_layer(name='NSP-Prob').set_weights([
-            np.transpose(loader('cls/seq_relationship/output_weights')),
-            loader('cls/seq_relationship/output_bias'),
+        model.get_layer(name='Discriminator-Prediction').set_weights([
+            loader('discriminator_predictions/dense_1/kernel'),
+            loader('discriminator_predictions/dense_1/bias'),
         ])

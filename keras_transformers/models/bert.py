@@ -1,46 +1,6 @@
-from transformers.backend import K
-from transformers.layers import *
+from keras_transformers.layers import *
 import numpy as np
 import json
-
-
-def _build_unilm_bias(inputs):
-    """用于mask未来信息
-    返回 shape=(b, -1, n, n)
-    """
-    idxs = K.cumsum(inputs, axis=-1)
-    idxs = idxs[:, None] <= idxs[:, :, None]
-    mask = K.cast(idxs, K.floatx())
-    return -(1 - mask[:, None]) * K.infinity()
-
-
-class MultiHeadSelfAttention(MultiHeadSelfAttention):
-    """带Attention bias
-    """
-    def call(self, inputs, mask=None):
-        qw = self.q_dense(inputs[0])
-        kw = self.k_dense(inputs[1])
-        vw = self.v_dense(inputs[2])
-
-        qw = K.reshape(qw, (-1, K.shape(qw)[1], self.head_num, self.query_size))
-        kw = K.reshape(kw, (-1, K.shape(kw)[1], self.head_num, self.query_size))
-        vw = K.reshape(vw, (-1, K.shape(vw)[1], self.head_num, self.key_size))
-
-        a = tf.einsum('bmhd, bnhd->bhmn', qw, kw)
-        a = a / self.query_size ** 0.5
-        # attention偏置，用于防止看见未来信息
-        a = a + globals()['attention_bias']
-        a = mask_sequences(a, mask[1], axis=-1, value='-inf')
-        # 将attention score归一化成概率分布
-        a = K.softmax(a, axis=-1)
-        # 这里的dropout参考自google transformer论文
-        a = keras.layers.Dropout(self.attention_dropout_rate)(a)
-        o = tf.einsum('bhmn, bnhd->bmhd', a, vw)
-
-        o = K.reshape(o, (-1, K.shape(o)[1], self.head_num * self.key_size))
-        o = self.o_dense(o)
-
-        return o
 
 
 def _wrap_layer(name,
@@ -170,7 +130,6 @@ def get_inputs(seq_len=None):
         shape=(seq_len,),
         name='Input-%s' % 'Segment'
     )
-    globals()['attention_bias'] = _build_unilm_bias(input_segment_ids)
     return input_token_ids, input_segment_ids
 
 
@@ -296,17 +255,17 @@ def get_model(vocab_size,
     return [input_token_ids, input_segment_ids], output
 
 
-def build_unilm_model(config_file,
-                      checkpoint_file,
-                      trainable=True,
-                      seq_len=int(1e9),
-                      with_nsp=False,
-                      with_mlm=True,
-                      **kwargs):
+def build_bert_model(config_file,
+                     checkpoint_file,
+                     trainable=True,
+                     seq_len=int(1e9),
+                     with_nsp=False,
+                     with_mlm=False,
+                     **kwargs):
     """Build the model from config file.
     # Reference:
-        [Unified Language Model Pre-training for Natural Language Understanding and Generation]
-        (https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)
+        [BERT: Pre-training of Deep Bidirectional Transformers forLanguage Understanding]
+        (https://arxiv.org/pdf/1810.04805.pdf&usg=ALkJrhhzxlCL6yTht2BRmH9atgvKFxHsxQ)
 
     """
     with open(config_file, 'r') as reader:

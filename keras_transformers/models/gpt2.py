@@ -1,4 +1,4 @@
-from transformers.layers import *
+from keras_transformers.layers import *
 import numpy as np
 import json
 
@@ -48,33 +48,13 @@ def _wrap_layer(name,
                 dropout_rate=0.0,
                 trainable=True):
     """Wrap layers with dropout, residual, normalization.
+    GPT2 with Pre-Norm.
     """
-    build_output = build_func(input_layer)
-    if 0.0 < dropout_rate < 1.0:
-        dropout_layer = keras.layers.Dropout(
-            rate=dropout_rate,
-            name='%s-Dropout' % name,
-        )(build_output)
-    else:
-        dropout_layer = build_output
-    if isinstance(input_layer, list):
-        input_layer = input_layer[0]
-    add_layer = keras.layers.Add(name='%s-Add' % name)([input_layer, dropout_layer])
     normal_layer = LayerNormalization(
         trainable=trainable,
         name='%s-Norm' % name,
-    )(add_layer)
-    return normal_layer
-
-
-def _wrap_embedding(name,
-                    input_layer,
-                    build_func,
-                    dropout_rate,
-                    trainable=True):
-    """Wrap Embedding Layer with Dropout （GPT without Norm).
-    """
-    build_output = build_func(input_layer)
+    )(input_layer)
+    build_output = build_func(normal_layer)
     if 0.0 < dropout_rate < 1.0:
         dropout_layer = keras.layers.Dropout(
             rate=dropout_rate,
@@ -82,6 +62,29 @@ def _wrap_embedding(name,
         )(build_output)
     else:
         dropout_layer = build_output
+    add_layer = keras.layers.Add(name='%s-Add' % name)([input_layer, dropout_layer])
+
+    return add_layer
+
+
+def _wrap_final_layer(name,
+                      input_layer,
+                      dropout_rate,
+                      trainable=True):
+    """Wrap final Layer with Norm and Dropout.
+    """
+
+    norm_layer = LayerNormalization(
+        trainable=trainable,
+        name='%s-Norm' % name,
+    )(input_layer)
+    if 0.0 < dropout_rate < 1.0:
+        dropout_layer = keras.layers.Dropout(
+            rate=dropout_rate,
+            name='%s-Dropout' % name,
+        )(norm_layer)
+    else:
+        dropout_layer = norm_layer
     return dropout_layer
 
 
@@ -161,23 +164,17 @@ def get_inputs(seq_len=None):
         shape=(seq_len,),
         name='Input-%s' % 'Token'
     )
-    input_segment_ids = keras.layers.Input(
-        shape=(seq_len,),
-        name='Input-%s' % 'Segment'
-    )
     globals()['attention_bias'] = _build_lm_bias(input_token_ids)
-    return input_token_ids, input_segment_ids
+    return input_token_ids
 
 
 def get_embeddings(inputs,
                    vocab_size,
-                   segment_type_size,
                    embedding_dim,
                    hidden_dim,
                    embedding_initializer,
-                   max_pos_num,
-                   embedding_dropout_rate):
-    input_token_ids, input_segment_ids = inputs
+                   max_pos_num):
+    input_token_ids = inputs
     embedding_token, token_embeddings = TokenEmbedding(
         input_dim=vocab_size,
         output_dim=embedding_dim,
@@ -185,27 +182,15 @@ def get_embeddings(inputs,
         mask_zero=True,
         name='Embedding-Token'
     )(input_token_ids)
-    embedding_segment = Embedding(
-        input_dim=segment_type_size,
-        output_dim=embedding_dim,
-        embeddings_initializer=embedding_initializer,
-        name='Embedding-Segment'
-    )(input_segment_ids)
-    embeddings = keras.layers.Add(
-        name='Embedding-Add-Token-Segment'
-    )([embedding_token, embedding_segment])
-    embeddings = _wrap_embedding(
-        name='Embedding',
-        input_layer=embeddings,
-        build_func=PositionEmbedding(
+
+    embeddings = PositionEmbedding(
             input_dim=max_pos_num,
             output_dim=embedding_dim,
             mode='add',
             embedding_initializer=embedding_initializer,
             name='Embedding-Position'
-        ),
-        dropout_rate=embedding_dropout_rate,
-    )
+    )(embedding_token)
+
     if embedding_dim != hidden_dim:
         embeddings = keras.layers.Dense(
             units=hidden_dim,
@@ -216,7 +201,6 @@ def get_embeddings(inputs,
 
 
 def get_model(vocab_size,
-              segment_type_size,
               max_pos_num,
               seq_len,
               embedding_dim,
@@ -229,16 +213,14 @@ def get_model(vocab_size,
               hidden_dropout_rate,
               gpt_initializer,
               **kwargs):
-    input_token_ids, input_segment_ids = get_inputs(seq_len)
+    input_token_ids = get_inputs(seq_len)
     embeddings, token_embeddings = get_embeddings(
-        inputs=[input_token_ids, input_segment_ids],
+        inputs=input_token_ids,
         vocab_size=vocab_size,
-        segment_type_size=segment_type_size,
         max_pos_num=max_pos_num,
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
         embedding_initializer=gpt_initializer,
-        embedding_dropout_rate=hidden_dropout_rate,
     )
     output = get_encoders(
         encoder_num=transformer_num,
@@ -252,23 +234,29 @@ def get_model(vocab_size,
         hidden_dropout_rate=hidden_dropout_rate,
         **kwargs,
     )
+    output = _wrap_final_layer(
+        name='Final-Layer',
+        input_layer=output,
+        dropout_rate=hidden_dropout_rate
+    )(output)
+
     output = EmbeddingSimilarity(
         use_bias=False,
         name='Embedding-Sim'
     )([output, token_embeddings])
 
-    return [input_token_ids, input_segment_ids], output
+    return input_token_ids, output
 
 
-def build_gpt_model(config_file,
-                    checkpoint_file,
-                    trainable=True,
-                    seq_len=int(1e9),
-                    **kwargs):
+def build_gpt2_model(config_file,
+                     checkpoint_file,
+                     trainable=True,
+                     seq_len=int(1e9),
+                     **kwargs):
     """Build the model from config file.
     # Reference:
-        [Improving language understanding by generative pre-training]
-        (https://www.cs.ubc.ca/~amuham01/LING530/papers/radford2018improving.pdf)
+        [Language Models are Unsupervised Multitask Learners]
+        (https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
 
     """
     with open(config_file, 'r') as reader:
@@ -280,7 +268,6 @@ def build_gpt_model(config_file,
     config['gpt_initializer'] = keras.initializers.TruncatedNormal(0, 0.02)
     inputs, outputs = get_model(
         vocab_size=config['vocab_size'],
-        segment_type_size=config['type_vocab_size'],
         max_pos_num=config['max_position_embeddings'],
         seq_len=None,
         embedding_dim=config.get('embedding_size', config.get('hidden_size')),
@@ -326,6 +313,10 @@ def load_model_weights_from_checkpoint(model,
     model.get_layer(name='Embedding-Position').set_weights([
         loader('gpt/embeddings/position_embeddings')[:config['max_position_embeddings'], :],
     ])
+    model.get_layer(name='Embedding-Norm').set_weights([
+        loader('gpt/embeddings/LayerNorm/gamma'),
+        loader('gpt/embeddings/LayerNorm/beta'),
+    ])
 
     try:
         model.get_layer(name='Embedding-Map').set_weights([
@@ -351,8 +342,8 @@ def load_model_weights_from_checkpoint(model,
             loader('gpt/transformer/layer_%d/attention/output/dense/bias' % i),
         ])
         model.get_layer(name='Transformer-%d-MultiHeadSelfAttention-Norm' % i).set_weights([
-            loader('gpt/transformer/layer_%d/attention/output/LayerNorm/gamma' % i),
-            loader('gpt/transformer/layer_%d/attention/output/LayerNorm/beta' % i),
+            loader('gpt/transformer/layer_%d/attention/input/LayerNorm/gamma' % i),
+            loader('gpt/transformer/layer_%d/attention/input/LayerNorm/beta' % i),
         ])
         model.get_layer(name='Transformer-%d-FeedForward' % i).set_weights([
             loader('gpt/transformer/layer_%d/intermediate/dense/kernel' % i),
@@ -361,7 +352,12 @@ def load_model_weights_from_checkpoint(model,
             loader('gpt/transformer/layer_%d/output/dense/bias' % i),
         ])
         model.get_layer(name='Transformer-%d-FeedForward-Norm' % i).set_weights([
-            loader('gpt/transformer/layer_%d/output/LayerNorm/gamma' % i),
-            loader('gpt/transformer/layer_%d/output/LayerNorm/beta' % i),
+            loader('gpt/transformer/layer_%d/input/LayerNorm/gamma' % i),
+            loader('gpt/transformer/layer_%d/input/LayerNorm/beta' % i),
         ])
+
+    model.get_layer(name='Final-Layer-Norm').set_weights([
+        loader('gpt/output/LayerNorm/beta'),
+        loader('gpt/output/LayerNorm/gamma'),
+    ])
 

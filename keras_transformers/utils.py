@@ -1,5 +1,5 @@
 import numpy as np
-from transformers.backend import softmax
+from keras_transformers.backend import softmax
 
 
 def pad_sequences(sequences,

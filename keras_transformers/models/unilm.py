@@ -1,8 +1,46 @@
-from transformers.layers import *
+from keras_transformers.backend import K
+from keras_transformers.layers import *
 import numpy as np
 import json
 
-_SHARED_BLOCK = {}
+
+def _build_unilm_bias(inputs):
+    """用于mask未来信息
+    返回 shape=(b, -1, n, n)
+    """
+    idxs = K.cumsum(inputs, axis=-1)
+    idxs = idxs[:, None] <= idxs[:, :, None]
+    mask = K.cast(idxs, K.floatx())
+    return -(1 - mask[:, None]) * K.infinity()
+
+
+class MultiHeadSelfAttention(MultiHeadSelfAttention):
+    """带Attention bias
+    """
+    def call(self, inputs, mask=None):
+        qw = self.q_dense(inputs[0])
+        kw = self.k_dense(inputs[1])
+        vw = self.v_dense(inputs[2])
+
+        qw = K.reshape(qw, (-1, K.shape(qw)[1], self.head_num, self.query_size))
+        kw = K.reshape(kw, (-1, K.shape(kw)[1], self.head_num, self.query_size))
+        vw = K.reshape(vw, (-1, K.shape(vw)[1], self.head_num, self.key_size))
+
+        a = tf.einsum('bmhd, bnhd->bhmn', qw, kw)
+        a = a / self.query_size ** 0.5
+        # attention偏置，用于防止看见未来信息
+        a = a + globals()['attention_bias']
+        a = mask_sequences(a, mask[1], axis=-1, value='-inf')
+        # 将attention score归一化成概率分布
+        a = K.softmax(a, axis=-1)
+        # 这里的dropout参考自google transformer论文
+        a = keras.layers.Dropout(self.attention_dropout_rate)(a)
+        o = tf.einsum('bhmn, bnhd->bmhd', a, vw)
+
+        o = K.reshape(o, (-1, K.shape(o)[1], self.head_num * self.key_size))
+        o = self.o_dense(o)
+
+        return o
 
 
 def _wrap_layer(name,
@@ -14,7 +52,7 @@ def _wrap_layer(name,
     """
     build_output = build_func(input_layer)
     if 0.0 < dropout_rate < 1.0:
-        dropout_layer = _build_shared_dropout(
+        dropout_layer = keras.layers.Dropout(
             rate=dropout_rate,
             name='%s-Dropout' % name,
         )(build_output)
@@ -22,8 +60,8 @@ def _wrap_layer(name,
         dropout_layer = build_output
     if isinstance(input_layer, list):
         input_layer = input_layer[0]
-    add_layer = _build_shared_add(name='%s-Add' % name)([input_layer, dropout_layer])
-    normal_layer = _build_shared_norm(
+    add_layer = keras.layers.Add(name='%s-Add' % name)([input_layer, dropout_layer])
+    normal_layer = LayerNormalization(
         trainable=trainable,
         name='%s-Norm' % name,
     )(add_layer)
@@ -52,59 +90,8 @@ def _wrap_embedding(name,
     return dropout_layer
 
 
-def _build_shared_multi_head_self_attention(head_num,
-                                            query_size,
-                                            key_size,
-                                            output_dim,
-                                            attention_dropout_rate,
-                                            kernel_initializer,
-                                            trainable,
-                                            name):
-    return _SHARED_BLOCK.setdefault(name, MultiHeadSelfAttention(
-            head_num,
-            query_size,
-            key_size,
-            output_dim,
-            attention_dropout_rate,
-            kernel_initializer,
-            trainable=trainable,
-            name=name
-    ))
-
-
-def _build_shared_feed_forward(units,
-                               activation,
-                               kernel_initializer,
-                               trainable,
-                               name):
-    return _SHARED_BLOCK.setdefault(name, FeedForward(
-        units=units,
-        activation=activation,
-        kernel_initializer=kernel_initializer,
-        trainable=trainable,
-        name=name,
-    ))
-
-
-def _build_shared_dropout(rate, name):
-    return _SHARED_BLOCK.setdefault(name, keras.layers.Dropout(
-        rate,
-        name=name
-    ))
-
-
-def _build_shared_add(name):
-    return _SHARED_BLOCK.setdefault(name, keras.layers.Add(name=name))
-
-
-def _build_shared_norm(trainable, name):
-    return _SHARED_BLOCK.setdefault(name, LayerNormalization(
-        trainable,
-        name=name
-    ))
-
-
-def get_encoder_component(input_layer,
+def get_encoder_component(name,
+                          input_layer,
                           head_num,
                           hidden_dim,
                           feed_forward_dim,
@@ -112,15 +99,13 @@ def get_encoder_component(input_layer,
                           kernel_initializer='uniform',
                           attention_dropout_rate=0.0,
                           hidden_dropout_rate=0.0,
-                          trainable=True,
-                          name=None):
-    attention_name = "Encoder-MultiHeadSelfAttention"
-    feed_forward_name = 'Encoder-FeedForward'
-
+                          trainable=True):
+    attention_name = "%s-MultiHeadSelfAttention" % name
+    feed_forward_name = '%s-FeedForward' % name
     attention_layer = _wrap_layer(
         name=attention_name,
         input_layer=[input_layer, input_layer, input_layer],
-        build_func=_build_shared_multi_head_self_attention(
+        build_func=MultiHeadSelfAttention(
             head_num=head_num,
             query_size=hidden_dim // head_num,
             key_size=hidden_dim // head_num,
@@ -136,7 +121,7 @@ def get_encoder_component(input_layer,
     feed_forward_layer = _wrap_layer(
         name=feed_forward_name,
         input_layer=attention_layer,
-        build_func=_build_shared_feed_forward(
+        build_func=FeedForward(
             units=feed_forward_dim,
             activation=feed_forward_activation,
             kernel_initializer=kernel_initializer,
@@ -185,6 +170,7 @@ def get_inputs(seq_len=None):
         shape=(seq_len,),
         name='Input-%s' % 'Segment'
     )
+    globals()['attention_bias'] = _build_unilm_bias(input_segment_ids)
     return input_token_ids, input_segment_ids
 
 
@@ -232,6 +218,7 @@ def get_embeddings(inputs,
             name='Embedding-Map'
         )(embeddings)
     return embeddings, token_embeddings
+
 
 def get_model(vocab_size,
               segment_type_size,
@@ -309,20 +296,22 @@ def get_model(vocab_size,
     return [input_token_ids, input_segment_ids], output
 
 
-def build_albert_model(config_file,
-                       checkpoint_file,
-                       trainable=True,
-                       seq_len=int(1e9),
-                       with_nsp=False,
-                       with_mlm=False,
-                       **kwargs):
+def build_unilm_model(config_file,
+                      checkpoint_file,
+                      trainable=True,
+                      seq_len=int(1e9),
+                      with_nsp=False,
+                      with_mlm=True,
+                      **kwargs):
     """Build the model from config file.
     # Reference:
-        [ALBERT: A LITE BERT FOR SELF-SUPERVISED LEARNING OF LANGUAGE REPRESENTATIONS]
-        (https://arxiv.org/pdf/1909.11942.pdf?ref=https://githubhelp.com)
+        [Unified Language Model Pre-training for Natural Language Understanding and Generation]
+        (https://proceedings.neurips.cc/paper/2019/file/c20bb2d9a50d5ac1f713f8b34d9aac5a-Paper.pdf)
+
     """
     with open(config_file, 'r') as reader:
         config = json.loads(reader.read())
+
     if seq_len is not None:
         config['max_position_embeddings'] = min(seq_len, config['max_position_embeddings'])
 
@@ -385,37 +374,35 @@ def load_model_weights_from_checkpoint(model,
         loader('bert/embeddings/LayerNorm/gamma'),
         loader('bert/embeddings/LayerNorm/beta'),
     ])
-
-    model.get_layer(name='Embedding-Map').set_weights([
-        loader('bert/encoder/embedding_hidden_mapping_in/kernel'),
-        loader('bert/encoder/embedding_hidden_mapping_in/bias'),
-    ])
-
-
-    model.get_layer(name='Encoder-MultiHeadSelfAttention').set_weights([
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/query/kernel'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/query/bias'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/key/kernel'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/key/bias'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/value/kernel'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/self/value/bias'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/output/dense/kernel'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/attention_1/output/dense/bias'),
-    ])
-    model.get_layer(name='Encoder-MultiHeadSelfAttention-Norm').set_weights([
-        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm/gamma'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm/beta'),
-    ])
-    model.get_layer(name='Encoder-FeedForward').set_weights([
-        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/dense/kernel'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/dense/bias'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/output/dense/kernel'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/ffn_1/intermediate/output/dense/bias'),
-    ])
-    model.get_layer(name='Encoder-FeedForward-Norm').set_weights([
-        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm_1/gamma'),
-        loader('bert/encoder/transformer/group_0/inner_group_0/LayerNorm_1/beta'),
-    ])
+    for i in range(config['num_hidden_layers']):
+        try:
+            model.get_layer(name='Encoder-%d-MultiHeadSelfAttention' % i)
+        except ValueError as e:
+            continue
+        model.get_layer(name='Encoder-%d-MultiHeadSelfAttention' % i).set_weights([
+            loader('bert/encoder/layer_%d/attention/self/query/kernel' % i),
+            loader('bert/encoder/layer_%d/attention/self/query/bias' % i),
+            loader('bert/encoder/layer_%d/attention/self/key/kernel' % i),
+            loader('bert/encoder/layer_%d/attention/self/key/bias' % i),
+            loader('bert/encoder/layer_%d/attention/self/value/kernel' % i),
+            loader('bert/encoder/layer_%d/attention/self/value/bias' % i),
+            loader('bert/encoder/layer_%d/attention/output/dense/kernel' % i),
+            loader('bert/encoder/layer_%d/attention/output/dense/bias' % i),
+        ])
+        model.get_layer(name='Encoder-%d-MultiHeadSelfAttention-Norm' % i).set_weights([
+            loader('bert/encoder/layer_%d/attention/output/LayerNorm/gamma' % i),
+            loader('bert/encoder/layer_%d/attention/output/LayerNorm/beta' % i),
+        ])
+        model.get_layer(name='Encoder-%d-FeedForward' % i).set_weights([
+            loader('bert/encoder/layer_%d/intermediate/dense/kernel' % i),
+            loader('bert/encoder/layer_%d/intermediate/dense/bias' % i),
+            loader('bert/encoder/layer_%d/output/dense/kernel' % i),
+            loader('bert/encoder/layer_%d/output/dense/bias' % i),
+        ])
+        model.get_layer(name='Encoder-%d-FeedForward-Norm' % i).set_weights([
+            loader('bert/encoder/layer_%d/output/LayerNorm/gamma' % i),
+            loader('bert/encoder/layer_%d/output/LayerNorm/beta' % i),
+        ])
 
     if with_mlm:
         model.get_layer(name='MLM-Dense').set_weights([

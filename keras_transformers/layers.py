@@ -1,4 +1,4 @@
-from transformers.backend import keras, K, mask_sequences, sinusoidal_embeddings
+from keras_transformers.backend import keras, K, mask_sequences, sinusoidal_embeddings
 from keras.layers import *
 import tensorflow as tf
 

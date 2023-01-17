@@ -1,10 +1,10 @@
 import codecs
-from transformers.backend import keras
-from transformers.models import build_bert_model
-from transformers.utils import DataGenerator, pad_sequences
-from transformers.tokenizer import Tokenizer
+from keras_transformers.backend import keras
+from keras_transformers.models import build_bert_model
+from keras_transformers.utils import DataGenerator, pad_sequences
+from keras_transformers.tokenizer import Tokenizer
 from keras.optimizers import Adam
-from transformers.optimizers import (
+from keras_transformers.optimizers import (
     wrap_optimizer_with_warmup,
     wrap_optimizer_with_accumulate_grads,
     wrap_optimizer_with_weight_decay
