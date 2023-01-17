@@ -245,7 +245,7 @@ class Tokenizer(object):
         char_indexs = []
         for i, ch in enumerate(text):
             if self._do_lower_case:
-                text = text.lower()
+                ch = ch.lower()
                 ch = unicodedata.normalize('NFD', ch)
                 ch = ''.join([s for s in ch if unicodedata.category(s) != 'Mn'])
             ch = ''.join([s for s in ch if not (ord(s) == 0 or ord(s) == 0xfffd or Tokenizer._is_control(s))])
@@ -260,7 +260,10 @@ class Tokenizer(object):
                 offsets_mapping.append(())
                 continue
             token = self._stem(token)
-            start = text[offsets:].index(token) + offsets
+            try:
+                start = text[offsets:].index(token) + offsets
+            except:
+                print()
             end = start + len(token)
             offsets_mapping.append((char_indexs[start], char_indexs[end-1]))
             offsets = end
@@ -414,7 +417,7 @@ class RobertaTokenizer(Tokenizer, BytePairEncoding):
         char_indexs = []
         for i, ch in enumerate(text):
             if self._do_lower_case:
-                text = text.lower()
+                ch = ch.lower()
                 ch = unicodedata.normalize('NFD', ch)
                 ch = ''.join([s for s in ch if unicodedata.category(s) != 'Mn'])
             ch = ''.join([s for s in ch if not (ord(s) == 0 or ord(s) == 0xfffd or Tokenizer._is_control(s))])
