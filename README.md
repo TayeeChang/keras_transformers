@@ -20,6 +20,7 @@
 - GPT2——[下载](https://github.com/imcaspar/gpt2-ml)
 - T5.1.1——[下载](https://github.com/google-research/text-to-text-transfer-transformer/blob/main/released_checkpoints.md#t511)  
 - T5——[下载](https://github.com/google-research/text-to-text-transfer-transformer)
+- ERNIE——[下载](https://github.com/PaddlePaddle/ERNIE)
 
 后续会陆续添加其他Transformer模型。
 
