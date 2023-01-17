@@ -260,10 +260,7 @@ class Tokenizer(object):
                 offsets_mapping.append(())
                 continue
             token = self._stem(token)
-            try:
-                start = text[offsets:].index(token) + offsets
-            except:
-                print()
+            start = text[offsets:].index(token) + offsets
             end = start + len(token)
             offsets_mapping.append((char_indexs[start], char_indexs[end-1]))
             offsets = end
