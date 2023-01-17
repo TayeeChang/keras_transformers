@@ -31,7 +31,8 @@
 
    环境使用  
    - keras >= 2.3.1  
-   - tensorflow == 1.13 or 1.14 (建议)
+   - tensorflow >= 1.14
+   - tensorflow 2.4 (建议)
    
 ## 安装
 ```shell   
