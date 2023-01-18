@@ -2,7 +2,7 @@
 
 ![Authour](https://img.shields.io/badge/Author-Tayee%20Chang-blue.svg) 
 ![Python](https://img.shields.io/badge/Python-3.6+-brightgreen.svg)
-![Tensorflow](https://img.shields.io/badge/TensorFlow-1.13.0-yellowgreen.svg)
+![Tensorflow](https://img.shields.io/badge/TensorFlow%3E=1.4-yellowgreen.svg)
 ![NLP](https://img.shields.io/badge/NLP-Transformers-redgreen.svg)
 [![License](https://img.shields.io/badge/License-Apache--2.0-green.svg)](https://github.com/TayeeChang/transformers/blob/master/LICENSE)
 
